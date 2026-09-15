@@ -236,7 +236,7 @@ configuration.
 ## Deliberately deferred
 
 - Azure Static Web Apps production Entra authentication configuration
-- GitHub Actions `AZURE_STATIC_WEB_APPS_API_TOKEN` and first production deploy
+- GitHub Actions `AZURE_STATIC_WEB_APPS_API_TOKEN_WONDERFUL_WAVE_021AD9203` and first production deploy
 - Approval workflow and Power Automate
 - Theory of Change PNG export (deferred until full-graph capture can include
   the project title and legend without viewport clipping)

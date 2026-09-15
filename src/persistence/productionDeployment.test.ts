@@ -31,20 +31,37 @@ describe('production Static Web Apps deployment', () => {
   })
 
   it('deploys a discoverable Functions v4 entry point instead of the SPA', () => {
-    const workflows = readdirSync(resolve(process.cwd(), '.github/workflows'))
-      .filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))
-      .map((file) => source(`.github/workflows/${file}`))
+    const workflowFiles = readdirSync(
+      resolve(process.cwd(), '.github/workflows'),
+    ).filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))
+    expect(workflowFiles).toEqual([
+      'azure-static-web-apps-wonderful-wave-021ad9203.yml',
+    ])
 
-    expect(workflows.length).toBeGreaterThan(0)
-    for (const workflow of workflows) {
-      expect(workflow).not.toMatch(/api_location:\s*""/)
-      expect(workflow).toMatch(/api_location:\s*"?api"?/)
-      expect(workflow).toContain(
-        'api_build_command: npm ci --include=dev && npm run build',
-      )
-      expect(workflow).toContain("NODE_VERSION: '20'")
-      expect(workflow).not.toContain('VITE_PROJECT_REPOSITORY')
-    }
+    const workflow = source(
+      '.github/workflows/azure-static-web-apps-wonderful-wave-021ad9203.yml',
+    )
+    expect(workflow).toContain('app_location: "/"')
+    expect(workflow).toContain('api_location: "api"')
+    expect(workflow).not.toMatch(/api_location:\s*""/)
+    expect(workflow).toContain('output_location: "dist"')
+    expect(workflow).toContain(
+      'app_build_command: npm ci --include=dev && npm run build',
+    )
+    expect(workflow).toContain(
+      'api_build_command: npm ci --include=dev && npm run build',
+    )
+    expect(workflow).toContain("NODE_VERSION: '20'")
+    expect(workflow).toContain(
+      'azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_WONDERFUL_WAVE_021AD9203 }}',
+    )
+    expect(workflow).toContain(
+      'github_id_token: ${{ steps.idtoken.outputs.result }}',
+    )
+    expect(workflow).not.toContain('VITE_PROJECT_REPOSITORY')
+    expect(workflow).not.toContain(
+      'secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}',
+    )
 
     expect(apiPackage.main).toBe('dist/functions/*.js')
     expect(apiPackage.type).toBe('module')

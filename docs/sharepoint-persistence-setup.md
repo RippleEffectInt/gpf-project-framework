@@ -426,8 +426,7 @@ resource IDs are configured outside this codebase.
 
 Still required before a real persistence test:
 
-1. Confirm GitHub Actions secret `AZURE_STATIC_WEB_APPS_API_TOKEN` and deploy
-   from `main` (or `workflow_dispatch`).
+1. Confirm GitHub Actions secret `AZURE_STATIC_WEB_APPS_API_TOKEN_WONDERFUL_WAVE_021AD9203` and deploy from `main`.
 2. Confirm Azure Static Web Apps Entra authentication and
    `https://<static-web-app-host>/.auth/login/aad/callback`.
 3. Confirm Microsoft Graph **Sites.Selected** Application permission, admin
