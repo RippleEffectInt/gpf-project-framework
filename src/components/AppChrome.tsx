@@ -236,6 +236,7 @@ function ProjectBasket({
 }) {
   const { data } = useFramework()
   const { state, dispatch } = useProjectDesign()
+  const projectTitle = state.metadata.title.trim() || 'Untitled project'
   const incompleteOutcomeCount = getIncompleteFinalOutcomeIds(state).length
   const configureAvailable = canContinueToConfigure(state)
   const outcomeCount = getSelectedFinalOutcomeCount(state)
@@ -348,7 +349,10 @@ function ProjectBasket({
       <div className="basket-summary">
         <div className="basket-heading">
           <div>
-            <span className="eyebrow">Current design</span>
+            <span className="eyebrow">Current project</span>
+            <p className="basket-project-title" title={projectTitle}>
+              {projectTitle}
+            </p>
             <h2>
               {outcomeCount} Final Outcome{outcomeCount === 1 ? '' : 's'}{' '}
               selected

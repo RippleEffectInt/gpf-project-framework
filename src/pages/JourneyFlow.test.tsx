@@ -2101,6 +2101,9 @@ describe('persistent project title and bulk activity selection', () => {
   }
 
   function intermediateOutcomeWithActivities() {
+    if (!primaryPathway) {
+      throw new Error('Expected a Primary pathway.')
+    }
     const intermediateOutcome =
       primaryPathway.intermediateOutcomes.find(
         (candidate) =>
@@ -2136,10 +2139,16 @@ describe('persistent project title and bulk activity selection', () => {
     renderApplication('/design/details', titledState())
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(
-      screen.getByRole('heading', { name: 'Find Final Outcomes' }),
+      screen.getByRole('heading', {
+        name: 'What change is this project trying to achieve?',
+      }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Editing project')).toBeInTheDocument()
-    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+    const basket = screen.getByRole('complementary', {
+      name: 'Project summary',
+    })
+    expect(basket.querySelector('.basket-project-title')).toHaveTextContent(
+      'Seed systems project',
+    )
   })
 
   it('keeps the project title visible during pathway configuration', () => {
@@ -2149,16 +2158,48 @@ describe('persistent project title and bulk activity selection', () => {
       state,
     )
     expect(
-      screen.getByRole('heading', { name: /Configure:/ }),
+      screen.getByRole('heading', { name: primaryPathway.pathway.name }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Editing project')).toBeInTheDocument()
-    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+    const basket = screen.getByRole('complementary', {
+      name: 'Project summary',
+    })
+    expect(basket.querySelector('.basket-project-title')).toHaveTextContent(
+      'Seed systems project',
+    )
   })
 
   it('keeps the project title visible on the Theory of Change page', () => {
     renderApplication('/design/theory-of-change', titledState())
-    expect(screen.getByText('Editing project')).toBeInTheDocument()
-    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+    expect(document.querySelector('.project-save-title')).toHaveTextContent(
+      'Seed systems project',
+    )
+  })
+
+  it('shows Include all activities on the pathway configuration page without expanding a step', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    if (activities.length < 2) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    const state = addPathway(
+      titledState(),
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const heading = screen.getByRole('heading', {
+      name: intermediateOutcome.statement,
+    })
+    const card = heading.closest('details')
+    if (!card) throw new Error('Expected Intermediate Outcome card.')
+    expect(card).not.toHaveAttribute('open')
+    expect(
+      within(card).getByRole('checkbox', { name: 'Include all activities' }),
+    ).toBeInTheDocument()
   })
 
   it('selects and clears all suggested activities from Include all activities', () => {

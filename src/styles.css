@@ -1012,6 +1012,22 @@ label .field-error {
   align-items: flex-start;
 }
 
+.basket-heading > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.basket-project-title {
+  margin: 0.3rem 0 0.45rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .basket-heading h2 {
   margin: 0.3rem 0 0;
   color: var(--ink);
@@ -2016,6 +2032,15 @@ label .field-error {
 .include-all-activities {
   background: #f3f7f4;
   font-weight: 700;
+}
+
+.io-summary-include-all {
+  margin-top: 0.85rem;
+  max-width: 22rem;
+}
+
+.io-configuration-card[open] .io-summary-include-all {
+  display: none;
 }
 
 .activity-option {

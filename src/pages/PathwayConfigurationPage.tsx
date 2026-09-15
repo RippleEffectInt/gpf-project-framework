@@ -548,6 +548,61 @@ function InputsEditor({
   )
 }
 
+function IncludeAllActivitiesCheckbox({
+  className,
+  pathwayId,
+  intermediateOutcomeId,
+  suggestedActivities,
+  configuration,
+}: {
+  className?: string
+  pathwayId: string
+  intermediateOutcomeId: string
+  suggestedActivities: { id: string }[]
+  configuration: ProjectIntermediateOutcomeConfiguration
+}) {
+  const { dispatch } = useProjectDesign()
+  const selectedCount = suggestedActivities.filter((activity) =>
+    configuration.standardActivities.some(
+      (selection) => selection.frameworkActivityId === activity.id,
+    ),
+  ).length
+  const allSelected =
+    suggestedActivities.length > 0 &&
+    selectedCount === suggestedActivities.length
+
+  return (
+    <label
+      className={`checkbox-option include-all-activities ${className ?? ''}`.trim()}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={allSelected}
+        ref={(element) => {
+          if (!element) return
+          element.indeterminate =
+            selectedCount > 0 && selectedCount < suggestedActivities.length
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) =>
+          dispatch({
+            type: 'setSuggestedActivities',
+            pathwayId,
+            intermediateOutcomeId,
+            frameworkActivityIds: suggestedActivities.map(
+              (activity) => activity.id,
+            ),
+            selected: event.target.checked,
+          })
+        }
+      />
+      <span>Include all activities</span>
+    </label>
+  )
+}
+
 function IntermediateOutcomeConfigurationCard({
   data,
   pathwayId,
@@ -588,11 +643,16 @@ function IntermediateOutcomeConfigurationCard({
       : hasStarted
         ? 'In progress'
         : 'Not started'
+  const [open, setOpen] = useState(false)
 
   return (
     <li className="configuration-chain-item">
       <div className="chain-number">{outcome.stepNumber}</div>
-      <details className="io-configuration-card">
+      <details
+        className="io-configuration-card"
+        open={open}
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+      >
         <summary>
           <div className="io-summary-main">
             <span className="eyebrow">Step {outcome.stepNumber}</span>
@@ -629,6 +689,15 @@ function IntermediateOutcomeConfigurationCard({
                   : `${configuration.inputs.length} inputs`}
               </span>
             </div>
+            {suggestedActivities.length > 0 && !open && (
+              <IncludeAllActivitiesCheckbox
+                className="io-summary-include-all"
+                pathwayId={pathwayId}
+                intermediateOutcomeId={outcome.id}
+                suggestedActivities={suggestedActivities}
+                configuration={configuration}
+              />
+            )}
           </div>
           <div className="io-summary-status">
             <span
@@ -728,45 +797,14 @@ function IntermediateOutcomeConfigurationCard({
               <p className="neutral-note">No suggested framework activities.</p>
             ) : (
               <div className="activity-options">
-                <label className="checkbox-option include-all-activities">
-                  <input
-                    type="checkbox"
-                    checked={
-                      suggestedActivities.length > 0 &&
-                      suggestedActivities.every((activity) =>
-                        configuration.standardActivities.some(
-                          (selection) =>
-                            selection.frameworkActivityId === activity.id,
-                        ),
-                      )
-                    }
-                    ref={(element) => {
-                      if (!element) return
-                      const selectedCount = suggestedActivities.filter(
-                        (activity) =>
-                          configuration.standardActivities.some(
-                            (selection) =>
-                              selection.frameworkActivityId === activity.id,
-                          ),
-                      ).length
-                      element.indeterminate =
-                        selectedCount > 0 &&
-                        selectedCount < suggestedActivities.length
-                    }}
-                    onChange={(event) =>
-                      dispatch({
-                        type: 'setSuggestedActivities',
-                        pathwayId,
-                        intermediateOutcomeId: outcome.id,
-                        frameworkActivityIds: suggestedActivities.map(
-                          (activity) => activity.id,
-                        ),
-                        selected: event.target.checked,
-                      })
-                    }
+                {open && (
+                  <IncludeAllActivitiesCheckbox
+                    pathwayId={pathwayId}
+                    intermediateOutcomeId={outcome.id}
+                    suggestedActivities={suggestedActivities}
+                    configuration={configuration}
                   />
-                  <span>Include all activities</span>
-                </label>
+                )}
                 {suggestedActivities.map((activity) => {
                   const selection = configuration.standardActivities.find(
                     (candidate) =>
