@@ -6,25 +6,29 @@ import {
 } from '@azure/functions'
 import {
   getProjectApiService,
-  parseStaticWebAppsPrincipal,
+  inspectStaticWebAppsPrincipal,
   projectApiErrorResponse,
+  type ClientPrincipalParseDiagnostic,
   type ProjectApiResponse,
 } from '../projectApi'
+import { UnauthenticatedProjectRequestError } from '../projectAuditPolicy'
 
 async function projectsCollection(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
+  const inspected = inspectStaticWebAppsPrincipal(
+    readClientPrincipalHeader(request),
+  )
   try {
     const service = getProjectApiService()
-    const principal = principalFrom(request)
     const response =
       request.method === 'GET'
-        ? await service.list(principal)
-        : await service.create(principal, await request.json())
+        ? await service.list(inspected.principal)
+        : await service.create(inspected.principal, await request.json())
     return httpResponse(response)
   } catch (reason) {
-    return failedResponse(reason, context)
+    return failedResponse(reason, context, inspected.diagnostic)
   }
 }
 
@@ -32,22 +36,24 @@ async function projectItem(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
+  const inspected = inspectStaticWebAppsPrincipal(
+    readClientPrincipalHeader(request),
+  )
   try {
     const service = getProjectApiService()
-    const principal = principalFrom(request)
     const projectId = request.params.projectId
     const response =
       request.method === 'GET'
-        ? await service.get(principal, projectId)
+        ? await service.get(inspected.principal, projectId)
         : await service.update(
-            principal,
+            inspected.principal,
             projectId,
             await request.json(),
             request.headers.get('if-match'),
           )
     return httpResponse(response)
   } catch (reason) {
-    return failedResponse(reason, context)
+    return failedResponse(reason, context, inspected.diagnostic)
   }
 }
 
@@ -55,6 +61,9 @@ async function metadataSync(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
+  const inspected = inspectStaticWebAppsPrincipal(
+    readClientPrincipalHeader(request),
+  )
   try {
     const body = (await request.json()) as unknown
     const metadataSyncToken =
@@ -63,13 +72,13 @@ async function metadataSync(
         : undefined
     return httpResponse(
       await getProjectApiService().retryMetadataSync(
-        principalFrom(request),
+        inspected.principal,
         request.params.projectId,
         metadataSyncToken,
       ),
     )
   } catch (reason) {
-    return failedResponse(reason, context)
+    return failedResponse(reason, context, inspected.diagnostic)
   }
 }
 
@@ -94,9 +103,10 @@ app.http('project-metadata-sync', {
   handler: metadataSync,
 })
 
-function principalFrom(request: HttpRequest) {
-  return parseStaticWebAppsPrincipal(
-    request.headers.get('x-ms-client-principal'),
+function readClientPrincipalHeader(request: HttpRequest): string | null {
+  return (
+    request.headers.get('x-ms-client-principal') ??
+    request.headers.get('X-MS-CLIENT-PRINCIPAL')
   )
 }
 
@@ -111,11 +121,21 @@ function httpResponse(response: ProjectApiResponse): HttpResponseInit {
 function failedResponse(
   reason: unknown,
   context: InvocationContext,
+  principalDiagnostic?: ClientPrincipalParseDiagnostic,
 ): HttpResponseInit {
   const response = projectApiErrorResponse(reason)
   context.error('Project API request failed safely.', {
     status: response.status,
     errorType: reason instanceof Error ? reason.name : 'UnknownError',
+    principalAuthReason:
+      reason instanceof UnauthenticatedProjectRequestError
+        ? reason.reason
+        : undefined,
+    identityProvider:
+      reason instanceof UnauthenticatedProjectRequestError
+        ? reason.identityProvider
+        : principalDiagnostic?.identityProvider,
+    principalDiagnostic,
   })
   return httpResponse(response)
 }

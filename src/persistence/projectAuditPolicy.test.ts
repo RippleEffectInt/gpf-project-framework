@@ -68,7 +68,13 @@ describe('project API human audit policy', () => {
         ...principal('object-1', 'User', 'user@example.org'),
         identityProvider: 'github',
       }),
-    ).toThrowError(expect.objectContaining({ status: 401 }))
+    ).toThrowError(
+      expect.objectContaining({
+        status: 401,
+        reason: 'identity-provider-not-aad',
+        identityProvider: 'github',
+      }),
+    )
   })
 
   it('makes the baseline repository authorization decision server-side', () => {

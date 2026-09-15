@@ -169,39 +169,109 @@ export function getProjectApiService(): ProjectApiService {
   return processApiService
 }
 
-export function parseStaticWebAppsPrincipal(
+export type ClientPrincipalParseFailure =
+  | 'missing-header'
+  | 'malformed-encoding'
+  | 'claims-not-array'
+  | 'missing-identity-fields'
+
+export interface ClientPrincipalParseDiagnostic {
+  hasHeader: boolean
+  headerLength: number
+  identityProvider: string | null
+  hasUserId: boolean
+  hasUserDetails: boolean
+  claimsIsArray: boolean
+  claimCount: number
+  parseFailure: ClientPrincipalParseFailure | null
+}
+
+export function inspectStaticWebAppsPrincipal(
   encodedPrincipal: string | null,
-): VerifiedStaticWebAppsPrincipal | null {
-  if (!encodedPrincipal) return null
+): {
+  principal: VerifiedStaticWebAppsPrincipal | null
+  diagnostic: ClientPrincipalParseDiagnostic
+} {
+  const diagnostic: ClientPrincipalParseDiagnostic = {
+    hasHeader: Boolean(encodedPrincipal),
+    headerLength: encodedPrincipal?.length ?? 0,
+    identityProvider: null,
+    hasUserId: false,
+    hasUserDetails: false,
+    claimsIsArray: false,
+    claimCount: 0,
+    parseFailure: encodedPrincipal ? null : 'missing-header',
+  }
+  if (!encodedPrincipal) {
+    return { principal: null, diagnostic }
+  }
   try {
     const raw = JSON.parse(
       Buffer.from(encodedPrincipal, 'base64').toString('utf8'),
     ) as unknown
-    if (!isRecord(raw) || !Array.isArray(raw.claims)) return null
-    const claims = raw.claims
-      .filter(
-        (claim): claim is { typ: string; val: string } =>
-          isRecord(claim) &&
-          typeof claim.typ === 'string' &&
-          typeof claim.val === 'string',
-      )
-      .map(({ typ, val }) => ({ typ, val }))
+    if (!isRecord(raw)) {
+      return {
+        principal: null,
+        diagnostic: { ...diagnostic, parseFailure: 'malformed-encoding' },
+      }
+    }
+    diagnostic.identityProvider =
+      typeof raw.identityProvider === 'string' ? raw.identityProvider : null
+    diagnostic.hasUserId = typeof raw.userId === 'string'
+    diagnostic.hasUserDetails = typeof raw.userDetails === 'string'
+    if (raw.claims === undefined) {
+      diagnostic.claimsIsArray = true
+    } else if (Array.isArray(raw.claims)) {
+      diagnostic.claimsIsArray = true
+      diagnostic.claimCount = raw.claims.length
+    } else {
+      return {
+        principal: null,
+        diagnostic: { ...diagnostic, parseFailure: 'claims-not-array' },
+      }
+    }
     if (
       typeof raw.identityProvider !== 'string' ||
       typeof raw.userId !== 'string' ||
       typeof raw.userDetails !== 'string'
     ) {
-      return null
+      return {
+        principal: null,
+        diagnostic: { ...diagnostic, parseFailure: 'missing-identity-fields' },
+      }
     }
+    const claims = Array.isArray(raw.claims)
+      ? raw.claims
+          .filter(
+            (claim): claim is { typ: string; val: string } =>
+              isRecord(claim) &&
+              typeof claim.typ === 'string' &&
+              typeof claim.val === 'string',
+          )
+          .map(({ typ, val }) => ({ typ, val }))
+      : []
+    diagnostic.claimCount = claims.length
     return {
-      identityProvider: raw.identityProvider,
-      userId: raw.userId,
-      userDetails: raw.userDetails,
-      claims,
+      principal: {
+        identityProvider: raw.identityProvider,
+        userId: raw.userId,
+        userDetails: raw.userDetails,
+        claims,
+      },
+      diagnostic,
     }
   } catch {
-    return null
+    return {
+      principal: null,
+      diagnostic: { ...diagnostic, parseFailure: 'malformed-encoding' },
+    }
   }
+}
+
+export function parseStaticWebAppsPrincipal(
+  encodedPrincipal: string | null,
+): VerifiedStaticWebAppsPrincipal | null {
+  return inspectStaticWebAppsPrincipal(encodedPrincipal).principal
 }
 
 export function projectApiErrorResponse(reason: unknown): ProjectApiResponse {

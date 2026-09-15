@@ -19,10 +19,19 @@ export interface HumanProjectAuditFields {
   ModifiedByObjectId: string
 }
 
+export type UnauthenticatedProjectRequestReason =
+  | 'no-principal'
+  | 'identity-provider-not-aad'
+  | 'missing-user-id'
+  | 'missing-user-details'
+
 export class UnauthenticatedProjectRequestError extends Error {
   readonly status = 401
 
-  constructor() {
+  constructor(
+    public readonly reason: UnauthenticatedProjectRequestReason = 'no-principal',
+    public readonly identityProvider: string | null = null,
+  ) {
     super('A verified authenticated principal is required.')
     this.name = 'UnauthenticatedProjectRequestError'
   }
@@ -41,13 +50,26 @@ function claim(
 export function requireAuthenticatedProjectPrincipal(
   principal: VerifiedStaticWebAppsPrincipal | null | undefined,
 ): VerifiedStaticWebAppsPrincipal {
-  if (
-    !principal ||
-    principal.identityProvider !== 'aad' ||
-    !principal.userId.trim() ||
-    !principal.userDetails.trim()
-  ) {
-    throw new UnauthenticatedProjectRequestError()
+  if (!principal) {
+    throw new UnauthenticatedProjectRequestError('no-principal')
+  }
+  if (principal.identityProvider !== 'aad') {
+    throw new UnauthenticatedProjectRequestError(
+      'identity-provider-not-aad',
+      principal.identityProvider,
+    )
+  }
+  if (!principal.userId.trim()) {
+    throw new UnauthenticatedProjectRequestError(
+      'missing-user-id',
+      principal.identityProvider,
+    )
+  }
+  if (!principal.userDetails.trim()) {
+    throw new UnauthenticatedProjectRequestError(
+      'missing-user-details',
+      principal.identityProvider,
+    )
   }
   return principal
 }
