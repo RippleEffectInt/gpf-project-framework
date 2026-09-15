@@ -1,12 +1,10 @@
 # API extension point
 
-Azure Functions for SharePoint data access belong in this folder. The browser
-now uses the typed `/api/projects` contract implemented by
-`SharePointProjectRepository`; tenant-specific Functions are not implemented
-yet. The site, metadata list, authoritative JSON document library and internal
-field names are confirmed; their identifiers are now configured server-side.
-The separately approved authentication setup is still required before
-deployment wiring.
+Azure Functions for SharePoint data access belong in this folder. Production
+builds call the typed `/api/projects` contract through
+`SharePointProjectRepository`. `functions/projects.ts` registers the HTTP
+endpoints included in the Static Web Apps `api` deployment. Certificate and
+SharePoint resource settings are Function app settings, never Vite variables.
 
 The required endpoints, SharePoint fields, ETag behavior, permissions,
 environment settings and manual setup steps are documented in
@@ -41,6 +39,14 @@ library-list identifiers from server configuration.
 `/sites/{site-id}/lists/{library-list-id}/drive` and caches successful
 resolution for the Function-process lifetime. Browser code never receives or
 configures this drive ID.
+
+`graphCertificateAuth.ts` owns server-only password-protected PFX parsing,
+in-memory RSA PKCS#8 PEM conversion, the MSAL confidential client and cached
+application-token acquisition.
+`microsoftGraphClient.ts` is the only Graph HTTP authentication boundary and
+distinguishes Graph 401, 403 and data failures.
+`sharePointGraphServices.ts` constructs shared process-level configuration,
+token, Graph client and drive-resolution services for storage gateways.
 
 Secrets, tenant settings and certificate material must be supplied through
 secure deployment configuration and must not be committed.

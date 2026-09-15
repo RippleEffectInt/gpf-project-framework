@@ -207,11 +207,13 @@ persisted version; compatibility is not relaxed to the current framework.
 
 ## Security and production boundaries
 
-Production SharePoint access happens only through the proposed Azure Functions
-contract under `/api`. Browser code never calls SharePoint directly. The
-frontend repository implementation and configuration boundary are complete;
-the tenant-specific Function and list setup is intentionally blocked pending
-review of `docs/sharepoint-persistence-setup.md`.
+Production SharePoint access happens only through Azure Functions under
+`/api/projects`. Browser code never calls SharePoint directly. Production
+Vite builds select `SharePointProjectRepository` automatically; local
+development keeps the browser `localStorage` repository. The Functions,
+certificate authentication and Graph storage gateway are implemented in
+`api/`. Remaining work is deployment and Azure Static Web Apps Entra login,
+documented in `docs/sharepoint-persistence-setup.md`.
 
 The approved app-only `Sites.Selected` design keeps native SharePoint
 `Author`/`Editor` audit fields and adds explicit human audit columns. The API
@@ -233,10 +235,8 @@ configuration.
 
 ## Deliberately deferred
 
-- Azure Function Microsoft Graph gateway implementation and deployment
-- Azure Static Web Apps production authentication configuration
-- Certificate-based SharePoint app-only tenant configuration
-- Azure Function SharePoint endpoint implementation and deployment
+- Azure Static Web Apps production Entra authentication configuration
+- GitHub Actions `AZURE_STATIC_WEB_APPS_API_TOKEN` and first production deploy
 - Approval workflow and Power Automate
 - Theory of Change PNG export (deferred until full-graph capture can include
   the project title and legend without viewport clipping)

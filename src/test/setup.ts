@@ -2,25 +2,30 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 
-afterEach(cleanup)
-
-Object.defineProperty(window, 'scrollTo', {
-  configurable: true,
-  value: () => undefined,
+afterEach(() => {
+  if (typeof document !== 'undefined') cleanup()
 })
 
-Object.defineProperty(Element.prototype, 'scrollIntoView', {
-  configurable: true,
-  value: () => undefined,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', {
+    configurable: true,
+    value: () => undefined,
+  })
 
-class TestResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: () => undefined,
+  })
+
+  class TestResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: TestResizeObserver,
+  })
 }
 
-Object.defineProperty(globalThis, 'ResizeObserver', {
-  configurable: true,
-  value: TestResizeObserver,
-})

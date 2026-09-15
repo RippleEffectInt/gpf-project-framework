@@ -112,6 +112,7 @@ function storageGateway(
     deleteDesignFile: vi.fn(async () => undefined),
     getDesignFileByPath: vi.fn(async () => null),
     getMetadataByProjectId: vi.fn(async () => metadata()),
+    listMetadataItems: vi.fn(async () => [metadata()]),
     getDesignFile: vi.fn(async () => designFile()),
     updateDesignFile: vi.fn(async () =>
       designFile(persistedProject(), '"file-10"'),

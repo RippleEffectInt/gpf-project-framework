@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import staticWebAppConfig from '../../staticwebapp.config.json'
 import { LocalProjectRepository } from './localProjectRepository'
+import { readProjectRepositoryConfig } from './projectRepository'
 import { parseProjectRecord } from './projectRecord'
 import { SharePointProjectRepository } from './sharePointProjectRepository'
 import type { PersistedProjectDesignV1 } from './types'
@@ -127,6 +128,32 @@ describe('LocalProjectRepository', () => {
 })
 
 describe('SharePointProjectRepository', () => {
+  it('selects SharePoint by default for production builds', () => {
+    expect(readProjectRepositoryConfig({ PROD: true })).toEqual({
+      mode: 'sharepoint',
+      apiBaseUrl: '/api/projects',
+    })
+    expect(
+      readProjectRepositoryConfig({ MODE: 'production', PROD: false }),
+    ).toEqual({
+      mode: 'sharepoint',
+      apiBaseUrl: '/api/projects',
+    })
+    expect(() =>
+      readProjectRepositoryConfig({
+        PROD: true,
+        VITE_PROJECT_REPOSITORY: 'local',
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'configuration' }))
+    expect(() =>
+      readProjectRepositoryConfig({
+        MODE: 'production',
+        PROD: false,
+        VITE_PROJECT_REPOSITORY: 'local',
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'configuration' }))
+  })
+
   it('keeps audit identity out of browser create requests and reads server-derived audit metadata', async () => {
     const document = project('PROJECT_1')
     const auditIdentity = {
@@ -181,6 +208,7 @@ describe('SharePointProjectRepository', () => {
   })
 
   it('protects both project API route forms with the authenticated SWA role', () => {
+    expect(staticWebAppConfig.platform).toEqual({ apiRuntime: 'node:20' })
     expect(staticWebAppConfig.routes).toEqual(
       expect.arrayContaining([
         {

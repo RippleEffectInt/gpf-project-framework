@@ -20,6 +20,8 @@ export interface SharePointProjectMetadataRecord {
   itemId: string
   etag: string
   fields: ProjectDesignListFields
+  createdAt?: string
+  modifiedAt?: string
 }
 
 export interface SharePointGraphProjectMetadataRecord {
@@ -34,6 +36,7 @@ export interface SharePointProjectDesignFile {
   webUrl: string
   etag: string
   content: string
+  modifiedAt?: string
 }
 
 /**
@@ -59,6 +62,7 @@ export interface SharePointProjectStorageGateway {
   getMetadataByProjectId(
     projectId: string,
   ): Promise<SharePointGraphProjectMetadataRecord | null>
+  listMetadataItems(): Promise<SharePointGraphProjectMetadataRecord[]>
   getDesignFile(
     driveItemId: string,
   ): Promise<SharePointProjectDesignFile | null>
@@ -421,10 +425,13 @@ function storedProject(
 function metadataRecord(
   raw: SharePointGraphProjectMetadataRecord,
 ): SharePointProjectMetadataRecord {
+  const names = SHAREPOINT_PROJECT_RESOURCE_SCHEMA.listFields
   return {
     itemId: raw.itemId,
     etag: raw.etag,
     fields: deserializeProjectDesignListFields(raw.fields),
+    createdAt: optionalString(raw.fields[names.Created]),
+    modifiedAt: optionalString(raw.fields[names.Modified]),
   }
 }
 
@@ -465,4 +472,8 @@ function projectDesignLibraryFields(project: PersistedProjectDesignV1) {
     FrameworkSchemaVersion: project.frameworkSchemaVersion,
     ProjectSchemaVersion: project.schemaVersion,
   }
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined
 }

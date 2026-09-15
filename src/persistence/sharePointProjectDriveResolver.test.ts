@@ -1,9 +1,12 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it, vi } from 'vitest'
+import type { AuthenticationResult } from '@azure/msal-node'
 import {
   SharePointProjectDriveResolutionError,
   SharePointProjectDriveResolver,
 } from '../../api/sharePointProjectDriveResolver'
 import type { SharePointProjectServerConfig } from '../../api/sharePointProjectSchema'
+import { createSharePointGraphServices } from '../../api/sharePointGraphServices'
 import { SharePointProjectRepository } from './sharePointProjectRepository'
 
 const config: SharePointProjectServerConfig = {
@@ -73,6 +76,72 @@ describe('SharePoint project drive resolution', () => {
     )
     expect(JSON.stringify(fetchImplementation.mock.calls)).not.toContain(
       'resolved-graph-drive-id',
+    )
+  })
+
+  it('wires drive resolution through the shared certificate token provider', async () => {
+    const acquireTokenByClientCredential = vi.fn(
+      async () =>
+        ({
+          accessToken: 'shared-application-token',
+          expiresOn: new Date(Date.now() + 60 * 60 * 1000),
+        }) as AuthenticationResult,
+    )
+    const fetchImplementation = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: 'resolved-graph-drive-id',
+            sharepointIds: {
+              listId: config.projectDesignFilesLibraryListId,
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+    )
+    const placeholderPem = [
+      '-----BEGIN PRIVATE KEY-----',
+      'bm90LXJlYWwta2V5LW1hdGVyaWFs',
+      '-----END PRIVATE KEY-----',
+    ].join('\n')
+    const services = createSharePointGraphServices(
+      {
+        SHAREPOINT_SITE_ID: config.siteId,
+        SHAREPOINT_PROJECT_DESIGNS_LIST_ID: config.projectDesignsListId,
+        SHAREPOINT_PROJECT_DESIGN_FILES_LIBRARY_LIST_ID:
+          config.projectDesignFilesLibraryListId,
+        SHAREPOINT_TENANT_ID: 'tenant-id',
+        SHAREPOINT_CLIENT_ID: 'client-id',
+        SHAREPOINT_CERTIFICATE_THUMBPRINT:
+          '35368FD73B7C981AFE8382FCCA09070F8758FFE0',
+        SHAREPOINT_CERTIFICATE_PFX_BASE64: Buffer.from([1, 2, 3, 4]).toString(
+          'base64',
+        ),
+        SHAREPOINT_CERTIFICATE_PFX_PASSWORD: 'pfx-password',
+      },
+      {
+        clientFactory: () => ({ acquireTokenByClientCredential }),
+        extractPrivateKey: () => placeholderPem,
+        validatePrivateKey: () => undefined,
+        fetchImplementation,
+      },
+    )
+
+    await services.driveResolver.resolveDriveId()
+
+    expect(acquireTokenByClientCredential).toHaveBeenCalledTimes(1)
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `/lists/${config.projectDesignFilesLibraryListId}/drive`,
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer shared-application-token',
+        }),
+      }),
     )
   })
 })

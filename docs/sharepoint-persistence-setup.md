@@ -281,30 +281,82 @@ operation if it cannot derive the required identity values safely.
 
 ## Configuration
 
-Browser-safe Vite values:
+Browser-safe Vite values (build-time only; never Azure Function settings):
 
 ```text
 VITE_PROJECT_REPOSITORY=local|sharepoint
 VITE_PROJECT_API_BASE_URL=/api/projects
 ```
 
+`VITE_PROJECT_REPOSITORY` cannot change production. Production client builds
+always instantiate `SharePointProjectRepository` via a compile-time Vite
+`command === 'build'` define (`__GPF_CLIENT_REPOSITORY_MODE__`), so
+`LocalProjectRepository` is eliminated from the shipped JavaScript. Do not
+branch on `import.meta.env.PROD` for this choice: Vite 7 sets `PROD` from
+`NODE_ENV === "production"`, which is often false during CI `vite build`.
+Local development keeps `local` unless this value is set to `sharepoint`.
+The GitHub Actions workflow must not and does not set this variable. Putting
+`VITE_*` values in Azure App Settings cannot change the already-built
+frontend.
+
 Required server-side Azure Function settings (names proposed for review):
 
 ```text
-SHAREPOINT_TENANT_ID
 SHAREPOINT_SITE_URL=https://sendacow.sharepoint.com/sites/Projects
 SHAREPOINT_SITE_ID=sendacow.sharepoint.com,8a1523a5-679f-44df-ba39-a169cbef9e44,37826090-209d-4477-9654-5a3edd5fbba0
 SHAREPOINT_PROJECT_DESIGNS_LIST_ID=aa3d80ac-739f-48a5-8f0c-d812b0942872
 SHAREPOINT_PROJECT_DESIGN_FILES_LIBRARY_LIST_ID=733df8ae-d910-4c5e-8e34-f4189ba7537d
+SHAREPOINT_TENANT_ID
 SHAREPOINT_CLIENT_ID
-SHAREPOINT_CERTIFICATE_BASE64 (prefer an Azure Key Vault reference)
-SHAREPOINT_CERTIFICATE_PASSWORD (only if the certificate requires one;
-prefer an Azure Key Vault reference)
+SHAREPOINT_CERTIFICATE_THUMBPRINT=35368FD73B7C981AFE8382FCCA09070F8758FFE0
+SHAREPOINT_CERTIFICATE_PFX_BASE64
+SHAREPOINT_CERTIFICATE_PFX_PASSWORD
 ```
 
 None of the server settings may use the `VITE_` prefix. Confirmed non-secret
 resource identifiers may appear in `.env.example`; credentials, certificates
 and secret values must never be committed.
+
+### Backend certificate authentication
+
+`SHAREPOINT_CERTIFICATE_PFX_BASE64` contains the complete password-protected
+PFX/PKCS#12 binary file encoded as standard base64 on one line.
+`SHAREPOINT_CERTIFICATE_PFX_PASSWORD` contains its password exactly, without
+trimming.
+
+The backend uses `node-forge` to parse and decrypt the PKCS#12 data server-side,
+find its RSA private-key bag, and convert that key in memory to unencrypted
+PKCS#8 PEM with `BEGIN PRIVATE KEY` markers. It normalizes PEM CRLF/LF and
+validates the extracted RSA key with Node's cryptographic key parser. Neither
+the PFX nor extracted PEM is written to disk.
+
+One process-level `@azure/msal-node` `ConfidentialClientApplication` receives:
+
+```text
+authority = https://login.microsoftonline.com/<SHAREPOINT_TENANT_ID>
+clientId = SHAREPOINT_CLIENT_ID
+clientCertificate.thumbprint = SHAREPOINT_CERTIFICATE_THUMBPRINT
+clientCertificate.privateKey = decoded and normalized PEM
+```
+
+`@azure/msal-node` 6 requires the deployed Azure Functions runtime to use
+Node.js 20 or newer.
+
+There is no client secret. The previous
+`SHAREPOINT_CERTIFICATE_PRIVATE_KEY_BASE64`,
+`SHAREPOINT_CERTIFICATE_BASE64` and `SHAREPOINT_CERTIFICATE_PASSWORD` names are
+not supported.
+
+The shared token provider calls `acquireTokenByClientCredential` with
+`https://graph.microsoft.com/.default`. It reuses the MSAL client, caches a
+valid application token until its refresh window and shares concurrent token
+requests. PFX content, PFX passwords, extracted private keys, access tokens,
+raw MSAL failures and complete credential configuration are never logged or
+returned to React.
+
+All backend Graph requests use the shared authenticated Graph client. Graph
+401 and 403 responses are represented by distinct safe authentication and
+permission errors; other HTTP failures remain SharePoint/Graph data errors.
 
 ### Graph drive resolution
 
@@ -367,36 +419,21 @@ app-only design.
 
 ## Remaining setup and confirmation
 
-The site, list, library and internal field mappings are confirmed. No code
-assumes that display names equal internal names; the mapping is centralized in
-`api/sharePointProjectSchema.ts`.
+SharePoint identifiers, certificate authentication, `/api/projects` Functions
+and production frontend SharePoint selection are implemented in this
+repository. Production Azure Function settings for the certificate and
+resource IDs are configured outside this codebase.
 
-No manual SharePoint identifiers remain outstanding. The Graph drive ID is
-resolved from the confirmed site ID and library list GUID.
+Still required before a real persistence test:
 
-Settings still requiring confirmation:
-
-1. Confirm that `field_1` (ProjectId) is indexed and enforces unique values.
-2. Confirm the `field_4` choice values and default exactly match the documented
-   project statuses.
-3. Confirm list version history, document-library major version history and the
-   `designs` folder are enabled/present.
-4. Confirm all field types and required/optional settings match the tables
-   above.
-5. Create/configure the SWA Entra authentication registration and redirect
-   URIs; store its credential only in SWA configuration.
-6. Create the separate Function/Graph app registration.
-7. Upload a certificate or configure a Key Vault-backed certificate reference.
-8. Grant Microsoft Graph `Sites.Selected` Application permission and admin
-   consent.
-9. Grant that service principal write access to the one approved SharePoint
-   site.
-10. Implement and deploy the reviewed Azure Functions `/api/projects`
-    endpoints against the approved list and document library.
-11. Add the server settings above in the deployment environment.
-12. Set `VITE_PROJECT_REPOSITORY=sharepoint` and deploy the frontend.
-13. Verify unauthenticated rejection, server-side authorization, native
-    application audit metadata, human `CreatedBy*`/`ModifiedBy*` behavior,
-    list/file ETag conflicts, malformed payload rejection and
-    framework-version incompatibility in a non-production site before
-    production rollout.
+1. Confirm GitHub Actions secret `AZURE_STATIC_WEB_APPS_API_TOKEN` and deploy
+   from `main` (or `workflow_dispatch`).
+2. Confirm Azure Static Web Apps Entra authentication and
+   `https://<static-web-app-host>/.auth/login/aad/callback`.
+3. Confirm Microsoft Graph **Sites.Selected** Application permission, admin
+   consent, and site-specific write access for the backend app.
+4. Confirm `field_1` (ProjectId) is indexed and unique, `field_4` choices
+   match documented statuses, list/library version history is enabled, and the
+   `designs` folder exists.
+5. After deploy, verify authenticated `/api/projects` against SharePoint, plus
+   unauthenticated 401, ETag conflicts and metadata-sync recovery.
