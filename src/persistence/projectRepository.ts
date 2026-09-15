@@ -80,9 +80,14 @@ export function createProjectRepository(
   config?: ProjectRepositoryConfig,
 ): ProjectRepository {
   if (__GPF_CLIENT_REPOSITORY_MODE__ === 'sharepoint') {
-    return new SharePointProjectRepository(
+    const repository = new SharePointProjectRepository(
       config?.apiBaseUrl ?? defaultApiBaseUrl(),
     )
+    console.info('[gpf] repository-instance', {
+      kind: repository.kind,
+      apiBaseUrl: config?.apiBaseUrl ?? defaultApiBaseUrl(),
+    })
+    return repository
   }
   const resolved = config ?? readProjectRepositoryConfig()
   return resolved.mode === 'sharepoint'

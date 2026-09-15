@@ -5,6 +5,7 @@ import { App } from '../App'
 import frameworkJson from '../data/framework-v1.0-normalized.json'
 import { ProjectPersistenceError } from '../persistence/errors'
 import { LocalProjectRepository } from '../persistence/localProjectRepository'
+import { SharePointProjectRepository } from '../persistence/sharePointProjectRepository'
 import { serializeProject } from '../persistence/projectSerialization'
 import type {
   PersistedProjectDesignV1,
@@ -235,6 +236,35 @@ describe('project persistence workflow', () => {
       screen.getByRole('button', { name: 'Restore my unsaved changes' }),
     )
     expect(title).toHaveValue('My unsaved local changes')
+  })
+
+  it('issues GET /api/projects when My Projects loads through SharePointProjectRepository', async () => {
+    const fetchImplementation = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        expect(String(input)).toBe('/api/projects')
+        expect(init?.method).toBe('GET')
+        expect(init?.credentials).toBe('include')
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+    const repository = new SharePointProjectRepository(
+      '/api/projects',
+      fetchImplementation,
+    )
+    renderApp(repository)
+
+    expect(await screen.findByText('No saved projects yet')).toBeInTheDocument()
+    expect(fetchImplementation).toHaveBeenCalledTimes(1)
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      '/api/projects',
+      expect.objectContaining({
+        method: 'GET',
+        credentials: 'include',
+      }),
+    )
   })
 
   it('shows a safe project list error', async () => {

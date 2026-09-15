@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import staticWebAppConfig from '../../staticwebapp.config.json'
 import { LocalProjectRepository } from './localProjectRepository'
 import { readProjectRepositoryConfig } from './projectRepository'
@@ -323,6 +323,26 @@ describe('SharePointProjectRepository', () => {
       body: JSON.stringify({ metadataSyncToken: 'opaque-sync-token' }),
     })
     expect(requests[1]?.body).not.toContain('frameworkVersion')
+  })
+
+  it('issues GET /api/projects through the default browser fetch', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const repository = new SharePointProjectRepository()
+
+    await expect(repository.listProjects()).resolves.toEqual([])
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/projects',
+      expect.objectContaining({
+        method: 'GET',
+        credentials: 'include',
+      }),
+    )
+    fetchSpy.mockRestore()
   })
 
   it('maps authentication and permission responses without exposing raw errors', async () => {

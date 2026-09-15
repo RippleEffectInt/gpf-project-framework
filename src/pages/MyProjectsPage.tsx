@@ -27,6 +27,7 @@ export function MyProjectsPage() {
 
   useEffect(() => {
     let cancelled = false
+    console.info('[gpf] my-projects:load-start')
     void listProjects()
       .then((items) => {
         if (!cancelled) {
@@ -35,7 +36,13 @@ export function MyProjectsPage() {
         }
       })
       .catch((reason: unknown) => {
-        if (!cancelled) setLoadError(asProjectPersistenceError(reason).message)
+        const error = asProjectPersistenceError(reason)
+        console.info('[gpf] my-projects:caught', {
+          name: reason instanceof Error ? reason.name : typeof reason,
+          code: error.code,
+          message: error.message,
+        })
+        if (!cancelled) setLoadError(error.message)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

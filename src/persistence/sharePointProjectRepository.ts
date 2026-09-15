@@ -9,6 +9,17 @@ import type {
 
 type FetchImplementation = typeof fetch
 
+function browserFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const fetchFn = globalThis.fetch
+  if (typeof fetchFn !== 'function') {
+    throw new TypeError('globalThis.fetch is not available')
+  }
+  return fetchFn.call(globalThis, input, init)
+}
+
 function mapResponseError(status: number): ProjectPersistenceError {
   if (status === 401) return new ProjectPersistenceError('authentication')
   if (status === 403) return new ProjectPersistenceError('permission')
@@ -83,33 +94,51 @@ function parseSaveResult(
 }
 
 export class SharePointProjectRepository implements ProjectRepository {
+  readonly kind = 'sharepoint' as const
   private readonly baseUrl: string
   private readonly fetchImplementation: FetchImplementation
 
   constructor(
     baseUrl = '/api/projects',
-    fetchImplementation: FetchImplementation = fetch,
+    fetchImplementation: FetchImplementation = browserFetch,
   ) {
-    this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.baseUrl = baseUrl.replace(/\/$/, '') || '/api/projects'
     this.fetchImplementation = fetchImplementation
+  }
+
+  private requestUrl(path: string): string {
+    return `${this.baseUrl}${path}`
   }
 
   private async request(
     path: string,
     init?: RequestInit,
   ): Promise<{ body: unknown; etag: string | null }> {
+    const url = this.requestUrl(path)
+    const requestInit: RequestInit = {
+      ...init,
+      method: init?.method ?? 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init?.headers,
+      },
+    }
+    console.info('[gpf] request:before-fetch', {
+      url,
+      method: requestInit.method,
+      fetchType: typeof this.fetchImplementation,
+    })
     let response: Response
     try {
-      response = await this.fetchImplementation(`${this.baseUrl}${path}`, {
-        ...init,
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-          ...init?.headers,
-        },
-      })
+      response = await this.fetchImplementation(url, requestInit)
     } catch (reason) {
+      console.info('[gpf] request:caught', {
+        phase: 'fetch',
+        name: reason instanceof Error ? reason.name : 'unknown',
+        message: reason instanceof Error ? reason.message : 'unknown',
+      })
       throw new ProjectPersistenceError('network', undefined, {
         cause: reason,
       })
@@ -175,7 +204,11 @@ export class SharePointProjectRepository implements ProjectRepository {
   }
 
   async listProjects(): Promise<ProjectSummary[]> {
-    const { body } = await this.request('')
+    console.info('[gpf] list:entered', {
+      kind: this.kind,
+      url: this.requestUrl(''),
+    })
+    const { body } = await this.request('', { method: 'GET' })
     if (!Array.isArray(body)) {
       throw new ProjectPersistenceError('malformed-data')
     }
