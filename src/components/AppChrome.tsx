@@ -128,6 +128,7 @@ function Header() {
 
 function ProjectSaveBar() {
   const {
+    state,
     activeProject,
     saveStatus,
     saveError,
@@ -140,6 +141,7 @@ function ProjectSaveBar() {
     reloadLatestProject,
     restoreUnsavedChanges,
   } = useProjectDesign()
+  const projectTitle = state.metadata.title.trim() || 'Untitled project'
   const statusMessage =
     metadataSyncRequired && saveStatus === 'dirty'
       ? 'Unsaved changes. The previously saved design also needs its project-list information synchronising.'
@@ -170,7 +172,13 @@ function ProjectSaveBar() {
           : 'status'
       }
     >
-      <span>{statusMessage}</span>
+      <div className="project-save-identity">
+        <span className="eyebrow">Editing project</span>
+        <p className="project-save-title" title={projectTitle}>
+          {projectTitle}
+        </p>
+      </div>
+      <span className="project-save-status">{statusMessage}</span>
       <div className="project-save-actions">
         {metadataSyncRequired && (
           <button

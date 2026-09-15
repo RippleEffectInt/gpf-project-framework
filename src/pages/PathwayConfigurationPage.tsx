@@ -728,6 +728,45 @@ function IntermediateOutcomeConfigurationCard({
               <p className="neutral-note">No suggested framework activities.</p>
             ) : (
               <div className="activity-options">
+                <label className="checkbox-option include-all-activities">
+                  <input
+                    type="checkbox"
+                    checked={
+                      suggestedActivities.length > 0 &&
+                      suggestedActivities.every((activity) =>
+                        configuration.standardActivities.some(
+                          (selection) =>
+                            selection.frameworkActivityId === activity.id,
+                        ),
+                      )
+                    }
+                    ref={(element) => {
+                      if (!element) return
+                      const selectedCount = suggestedActivities.filter(
+                        (activity) =>
+                          configuration.standardActivities.some(
+                            (selection) =>
+                              selection.frameworkActivityId === activity.id,
+                          ),
+                      ).length
+                      element.indeterminate =
+                        selectedCount > 0 &&
+                        selectedCount < suggestedActivities.length
+                    }}
+                    onChange={(event) =>
+                      dispatch({
+                        type: 'setSuggestedActivities',
+                        pathwayId,
+                        intermediateOutcomeId: outcome.id,
+                        frameworkActivityIds: suggestedActivities.map(
+                          (activity) => activity.id,
+                        ),
+                        selected: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Include all activities</span>
+                </label>
                 {suggestedActivities.map((activity) => {
                   const selection = configuration.standardActivities.find(
                     (candidate) =>

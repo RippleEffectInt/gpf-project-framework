@@ -224,6 +224,30 @@ p {
   font-weight: 700;
 }
 
+.project-save-identity {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.project-save-identity .eyebrow {
+  display: block;
+}
+
+.project-save-title {
+  margin: 0.12rem 0 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.project-save-status {
+  flex: 0 1 auto;
+}
+
 .project-save-bar.save-dirty,
 .project-save-bar.save-error,
 .project-save-bar.save-conflict {
@@ -1987,6 +2011,11 @@ label .field-error {
   flex-direction: column;
   gap: 0.8rem;
   margin-top: 1rem;
+}
+
+.include-all-activities {
+  background: #f3f7f4;
+  font-weight: 700;
 }
 
 .activity-option {

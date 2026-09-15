@@ -195,6 +195,64 @@ describe('project design selection and pathway configuration', () => {
     expect(configuration(deselected).standardActivities).toEqual([])
   })
 
+  it('selects and clears suggested activities in bulk without touching custom activities', () => {
+    const withCustom = projectDesignReducer(addPathway(initialProjectDesignState), {
+      type: 'addProjectSpecificActivity',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      activity: {
+        id: 'custom-act',
+        wording: 'Keep this custom activity',
+        projectDetails: 'Local detail',
+      },
+    })
+    const selected = projectDesignReducer(withCustom, {
+      type: 'setSuggestedActivities',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      selected: true,
+    })
+    const withNotes = projectDesignReducer(selected, {
+      type: 'updateStandardActivityNotes',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityId: 'ACT_1',
+      projectNotes: 'Keep these notes',
+    })
+    const reselected = projectDesignReducer(withNotes, {
+      type: 'setSuggestedActivities',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      selected: true,
+    })
+    const cleared = projectDesignReducer(reselected, {
+      type: 'setSuggestedActivities',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      selected: false,
+    })
+
+    expect(configuration(selected).standardActivities).toEqual([
+      { frameworkActivityId: 'ACT_1', projectNotes: '' },
+      { frameworkActivityId: 'ACT_2', projectNotes: '' },
+    ])
+    expect(configuration(reselected).standardActivities).toEqual([
+      { frameworkActivityId: 'ACT_1', projectNotes: 'Keep these notes' },
+      { frameworkActivityId: 'ACT_2', projectNotes: '' },
+    ])
+    expect(configuration(cleared).standardActivities).toEqual([])
+    expect(configuration(cleared).projectSpecificActivities).toEqual([
+      {
+        id: 'custom-act',
+        wording: 'Keep this custom activity',
+        projectDetails: 'Local detail',
+      },
+    ])
+  })
+
   it('stores only the framework activity ID and editable project notes', () => {
     const selected = projectDesignReducer(addPathway(initialProjectDesignState), {
       type: 'setStandardActivity',

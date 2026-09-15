@@ -2082,3 +2082,178 @@ describe('basket Final Outcome orientation', () => {
     confirmSpy.mockRestore()
   })
 })
+
+describe('persistent project title and bulk activity selection', () => {
+  function titledState(state = initialProjectDesignState): ProjectDesignState {
+    return projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: {
+        title: 'Seed systems project',
+        country: 'Kenya',
+        donor: 'FCDO',
+        fundingReference: 'REF-001',
+        projectManager: 'Amina Hassan',
+        plannedStartDate: '2027-03',
+        plannedEndDate: '2027-11',
+        description: 'A project to strengthen local seed markets.',
+      },
+    })
+  }
+
+  function intermediateOutcomeWithActivities() {
+    const intermediateOutcome =
+      primaryPathway.intermediateOutcomes.find(
+        (candidate) =>
+          getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
+            .length > 1,
+      ) ??
+      primaryPathway.intermediateOutcomes.find(
+        (candidate) =>
+          getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
+            .length > 0,
+      )
+    if (!intermediateOutcome) {
+      throw new Error('Expected an Intermediate Outcome with suggested activities.')
+    }
+    const activities = getSuggestedActivitiesForIntermediateOutcome(
+      framework,
+      intermediateOutcome.id,
+    )
+    return { intermediateOutcome, activities }
+  }
+
+  function openActivityCard(statement: string) {
+    const heading = screen.getByRole('heading', { name: statement })
+    const summary = heading.closest('summary')
+    if (!summary) throw new Error('Expected Intermediate Outcome summary.')
+    fireEvent.click(summary)
+    const card = heading.closest('details')
+    if (!card) throw new Error('Expected Intermediate Outcome card.')
+    return { heading, card }
+  }
+
+  it('keeps the project title visible after continuing from project details', () => {
+    renderApplication('/design/details', titledState())
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(
+      screen.getByRole('heading', { name: 'Find Final Outcomes' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Editing project')).toBeInTheDocument()
+    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+  })
+
+  it('keeps the project title visible during pathway configuration', () => {
+    const state = addPathway(titledState(), outcome.id, primaryPathway, 'primary')
+    renderApplication(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    expect(
+      screen.getByRole('heading', { name: /Configure:/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Editing project')).toBeInTheDocument()
+    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+  })
+
+  it('keeps the project title visible on the Theory of Change page', () => {
+    renderApplication('/design/theory-of-change', titledState())
+    expect(screen.getByText('Editing project')).toBeInTheDocument()
+    expect(screen.getByText('Seed systems project')).toBeInTheDocument()
+  })
+
+  it('selects and clears all suggested activities from Include all activities', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    if (activities.length < 2) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    const state = addPathway(
+      titledState(),
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const { card } = openActivityCard(intermediateOutcome.statement)
+    const includeAll = within(card).getByRole('checkbox', {
+      name: 'Include all activities',
+    })
+    fireEvent.click(includeAll)
+    for (const activity of activities) {
+      expect(within(card).getByLabelText(activity.text)).toBeChecked()
+    }
+    expect(includeAll).toBeChecked()
+    fireEvent.click(includeAll)
+    for (const activity of activities) {
+      expect(within(card).getByLabelText(activity.text)).not.toBeChecked()
+    }
+    expect(includeAll).not.toBeChecked()
+  })
+
+  it('checks Include all activities after every suggested activity is selected manually', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    if (activities.length < 2) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    const state = addPathway(
+      titledState(),
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const { card } = openActivityCard(intermediateOutcome.statement)
+    const includeAll = within(card).getByRole('checkbox', {
+      name: 'Include all activities',
+    })
+    expect(includeAll).not.toBeChecked()
+    fireEvent.click(within(card).getByLabelText(activities[0]!.text))
+    expect(includeAll).not.toBeChecked()
+    expect((includeAll as HTMLInputElement).indeterminate).toBe(true)
+    for (const activity of activities.slice(1)) {
+      fireEvent.click(within(card).getByLabelText(activity.text))
+    }
+    expect(includeAll).toBeChecked()
+    expect((includeAll as HTMLInputElement).indeterminate).toBe(false)
+  })
+
+  it('preserves custom activities when Include all activities is used', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    let state = addPathway(
+      titledState(),
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId: intermediateOutcome.id,
+      activity: completeCustomActivity,
+    })
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const { card } = openActivityCard(intermediateOutcome.statement)
+    fireEvent.click(
+      within(card).getByRole('checkbox', { name: 'Include all activities' }),
+    )
+    expect(within(card).getByText(completeCustomActivity.wording)).toBeInTheDocument()
+    fireEvent.click(
+      within(card).getByRole('checkbox', { name: 'Include all activities' }),
+    )
+    expect(within(card).getByText(completeCustomActivity.wording)).toBeInTheDocument()
+    for (const activity of activities) {
+      expect(within(card).getByLabelText(activity.text)).not.toBeChecked()
+    }
+  })
+})

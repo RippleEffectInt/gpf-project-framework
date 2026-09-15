@@ -88,6 +88,13 @@ export type ProjectDesignAction =
       selected: boolean
     }
   | {
+      type: 'setSuggestedActivities'
+      pathwayId: string
+      intermediateOutcomeId: string
+      frameworkActivityIds: string[]
+      selected: boolean
+    }
+  | {
       type: 'updateStandardActivityNotes'
       pathwayId: string
       intermediateOutcomeId: string
@@ -609,6 +616,42 @@ export function projectDesignReducer(
                   (activity) =>
                     activity.frameworkActivityId !== action.frameworkActivityId,
                 ),
+          }
+        },
+      )
+
+    case 'setSuggestedActivities':
+      return updateIntermediateOutcomeConfiguration(
+        state,
+        action.pathwayId,
+        action.intermediateOutcomeId,
+        (configuration) => {
+          const suggestedIds = new Set(action.frameworkActivityIds)
+          if (!action.selected) {
+            return {
+              ...configuration,
+              standardActivities: configuration.standardActivities.filter(
+                (activity) => !suggestedIds.has(activity.frameworkActivityId),
+              ),
+            }
+          }
+          const notesById = new Map(
+            configuration.standardActivities.map((activity) => [
+              activity.frameworkActivityId,
+              activity.projectNotes,
+            ]),
+          )
+          return {
+            ...configuration,
+            standardActivities: [
+              ...configuration.standardActivities.filter(
+                (activity) => !suggestedIds.has(activity.frameworkActivityId),
+              ),
+              ...action.frameworkActivityIds.map((frameworkActivityId) => ({
+                frameworkActivityId,
+                projectNotes: notesById.get(frameworkActivityId) ?? '',
+              })),
+            ],
           }
         },
       )

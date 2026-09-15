@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import frameworkJson from '../data/framework-v1.0-normalized.json'
-import { getPathwayIntermediateOutcomeSeeds } from '../services/frameworkService'
+import {
+  getPathwayIntermediateOutcomeSeeds,
+  getSuggestedActivitiesForIntermediateOutcome,
+} from '../services/frameworkService'
 import {
   initialProjectDesignState,
   projectDesignReducer,
@@ -135,6 +138,60 @@ describe('project persistence serialization', () => {
         projectCode: 'P-001',
       }),
     )
+  })
+
+  it('persists bulk-selected suggested activities as standard activity selections', () => {
+    const state = relatedPathwayState()
+    const pathway = state.projectPathways[0]
+    const configuration = pathway?.intermediateOutcomeConfigurations.find(
+      (candidate) =>
+        getSuggestedActivitiesForIntermediateOutcome(
+          framework,
+          candidate.frameworkIntermediateOutcomeId,
+        ).length > 1,
+    )
+    if (!pathway || !configuration) {
+      throw new Error('Expected an Intermediate Outcome with suggested activities.')
+    }
+    const activityIds = getSuggestedActivitiesForIntermediateOutcome(
+      framework,
+      configuration.frameworkIntermediateOutcomeId,
+    ).map((activity) => activity.id)
+    const selected = projectDesignReducer(state, {
+      type: 'setSuggestedActivities',
+      pathwayId: pathway.pathwayId,
+      intermediateOutcomeId: configuration.frameworkIntermediateOutcomeId,
+      frameworkActivityIds: activityIds,
+      selected: true,
+    })
+    const document = serializeProject({
+      id: 'PROJECT_1',
+      status: 'Draft',
+      design: selected,
+      framework,
+    })
+    const loaded = loadPersistedProject(document, framework)
+    const persisted =
+      document.design.projectPathways[0]?.intermediateOutcomeConfigurations.find(
+        (candidate) =>
+          candidate.frameworkIntermediateOutcomeId ===
+          configuration.frameworkIntermediateOutcomeId,
+      )?.standardActivities
+    const loadedActivities =
+      loaded.design.projectPathways[0]?.intermediateOutcomeConfigurations.find(
+        (candidate) =>
+          candidate.frameworkIntermediateOutcomeId ===
+          configuration.frameworkIntermediateOutcomeId,
+      )?.standardActivities
+
+    expect(persisted).toEqual(
+      activityIds.map((frameworkActivityId) => ({
+        frameworkActivityId,
+        projectNotes: '',
+      })),
+    )
+    expect(loadedActivities).toEqual(persisted)
+    expect(JSON.stringify(persisted)).not.toContain('selectedTab')
   })
 
   it('excludes UI-only and derived presentation state', () => {
