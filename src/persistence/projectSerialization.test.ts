@@ -205,6 +205,82 @@ describe('project persistence serialization', () => {
     expect(JSON.stringify(persisted)).not.toContain('selectedTab')
   })
 
+  it('preserves two distinct custom activities and their output configurations', () => {
+    let state = relatedPathwayState()
+    state = projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    const pathway = state.projectPathways[0]
+    const configuration =
+      pathway?.intermediateOutcomeConfigurations[0]
+    if (!pathway || !configuration) {
+      throw new Error('Expected a pathway configuration.')
+    }
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: pathway.pathwayId,
+      intermediateOutcomeId:
+        configuration.frameworkIntermediateOutcomeId,
+      activity: {
+        id: 'CUSTOM_ACTIVITY_1',
+        wording: 'Facilitate local planning',
+        projectDetails: 'First activity notes',
+        plannedQuantity: 5,
+        outputUnitSelection: 'events',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: 'Five planning sessions delivered',
+      },
+    })
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: pathway.pathwayId,
+      intermediateOutcomeId:
+        configuration.frameworkIntermediateOutcomeId,
+      activity: {
+        id: 'CUSTOM_ACTIVITY_2',
+        wording: 'Coach producer groups',
+        projectDetails: 'Second activity notes',
+        plannedQuantity: 50,
+        outputUnitSelection: 'self-help-groups',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: true,
+        outputTextOverride: 'Fifty groups coached',
+      },
+    })
+    const document = serializeProject({
+      id: 'PROJECT_1',
+      status: 'Draft',
+      design: state,
+      framework,
+    })
+    const loaded = loadPersistedProject(document, framework).design
+    const loadedActivities =
+      loaded.projectPathways[0]?.intermediateOutcomeConfigurations[0]
+        ?.projectSpecificActivities
+
+    expect(loadedActivities).toEqual([
+      expect.objectContaining({
+        id: 'CUSTOM_ACTIVITY_1',
+        wording: 'Facilitate local planning',
+        projectDetails: 'First activity notes',
+        plannedQuantity: 5,
+        outputUnitSelection: 'events',
+        outputTextOverride: 'Five planning sessions delivered',
+      }),
+      expect.objectContaining({
+        id: 'CUSTOM_ACTIVITY_2',
+        wording: 'Coach producer groups',
+        projectDetails: 'Second activity notes',
+        plannedQuantity: 50,
+        outputUnitSelection: 'self-help-groups',
+        useProjectSelfHelpGroupTotal: true,
+        outputTextOverride: 'Fifty groups coached',
+      }),
+    ])
+  })
+
   it('excludes UI-only and derived presentation state', () => {
     const state = {
       ...relatedPathwayState(),

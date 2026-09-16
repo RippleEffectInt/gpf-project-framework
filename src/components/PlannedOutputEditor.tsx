@@ -18,18 +18,20 @@ export function PlannedOutputEditor({
   planning,
   activity,
   plannedSelfHelpGroupCount,
+  defaultWordingEditorOpen,
   onChange,
 }: {
   planning: ActivityOutputPlanning
   activity?: Pick<SuggestedActivity, 'outputPhrase' | 'text'>
   plannedSelfHelpGroupCount: number | null
+  defaultWordingEditorOpen?: boolean
   onChange: (planning: ActivityOutputPlanning) => void
 }) {
   const outputPhrase = activity?.outputPhrase ?? null
   const hasUsableOutputPhrase =
     isGeneratedOutputPhraseAllowed(outputPhrase)
   const [editingWording, setEditingWording] = useState(
-    !hasUsableOutputPhrase,
+    defaultWordingEditorOpen ?? !hasUsableOutputPhrase,
   )
   const useSelfHelpGroupTotalAvailable =
     planning.outputUnitSelection === 'self-help-groups' &&

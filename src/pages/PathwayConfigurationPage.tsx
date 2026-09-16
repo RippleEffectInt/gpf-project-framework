@@ -249,27 +249,46 @@ function ProjectSpecificActivitiesEditor({
 }) {
   const { dispatch, state } = useProjectDesign()
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [wording, setWording] = useState('')
-  const [projectDetails, setProjectDetails] = useState('')
+  const [creating, setCreating] = useState(activities.length === 0)
+  const [draftWording, setDraftWording] = useState('')
+  const [draftProjectDetails, setDraftProjectDetails] = useState('')
+  const [editWording, setEditWording] = useState('')
+  const [editProjectDetails, setEditProjectDetails] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const reset = () => {
+  const finishEditing = () => {
     setEditingId(null)
-    setWording('')
-    setProjectDetails('')
+    setEditWording('')
+    setEditProjectDetails('')
+  }
+
+  const startCreating = () => {
+    finishEditing()
+    setDraftWording('')
+    setDraftProjectDetails('')
+    setCreating(true)
+    setFeedback(null)
+  }
+
+  const startEditing = (activity: ProjectSpecificActivity) => {
+    setCreating(false)
+    setEditingId(activity.id)
+    setEditWording(activity.wording)
+    setEditProjectDetails(activity.projectDetails)
+    setFeedback(null)
   }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (!wording.trim()) return
     if (editingId) {
-      reset()
+      finishEditing()
       return
     }
+    if (!creating || !draftWording.trim()) return
     const activity = {
       id: createLocalId('activity'),
-      wording: wording.trim(),
-      projectDetails: projectDetails.trim(),
+      wording: draftWording.trim(),
+      projectDetails: draftProjectDetails.trim(),
       ...createCustomActivityOutputPlanning(),
     }
     dispatch({
@@ -278,10 +297,11 @@ function ProjectSpecificActivitiesEditor({
       intermediateOutcomeId,
       activity,
     })
+    setDraftWording('')
+    setDraftProjectDetails('')
+    setCreating(false)
     setFeedback(ADDED_SESSION_MESSAGE)
-    setEditingId(activity.id)
-    setWording(activity.wording)
-    setProjectDetails(activity.projectDetails)
+    startEditing(activity)
   }
 
   return (
@@ -305,6 +325,7 @@ function ProjectSpecificActivitiesEditor({
                 )}
                 <PlannedOutputEditor
                   planning={normalizeActivityOutput(activity)}
+                  defaultWordingEditorOpen={false}
                   plannedSelfHelpGroupCount={
                     state.metadata.plannedSelfHelpGroupCount
                   }
@@ -325,25 +346,22 @@ function ProjectSpecificActivitiesEditor({
                 <button
                   className="text-button"
                   type="button"
-                  onClick={() => {
-                    setEditingId(activity.id)
-                    setWording(activity.wording)
-                    setProjectDetails(activity.projectDetails)
-                  }}
+                  onClick={() => startEditing(activity)}
                 >
                   Edit
                 </button>
                 <button
                   className="text-button danger"
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     dispatch({
                       type: 'deleteProjectSpecificActivity',
                       pathwayId,
                       intermediateOutcomeId,
                       activityId: activity.id,
                     })
-                  }
+                    if (editingId === activity.id) finishEditing()
+                  }}
                 >
                   Delete
                 </button>
@@ -352,16 +370,22 @@ function ProjectSpecificActivitiesEditor({
           ))}
         </ul>
       )}
-      <form className="compact-form" onSubmit={submit}>
-        <label>
-          <span>Activity wording *</span>
-          <input
-            value={wording}
-            onChange={(event) => {
-              const value = event.target.value
-              setWording(value)
-              if (editingId) {
-                const current = activities.find((item) => item.id === editingId)
+      {(creating || editingId) && (
+        <form className="compact-form" onSubmit={submit}>
+          <label>
+            <span>Activity wording *</span>
+            <input
+              value={editingId ? editWording : draftWording}
+              onChange={(event) => {
+                const value = event.target.value
+                if (!editingId) {
+                  setDraftWording(value)
+                  return
+                }
+                setEditWording(value)
+                const current = activities.find(
+                  (item) => item.id === editingId,
+                )
                 dispatch({
                   type: 'updateProjectSpecificActivity',
                   pathwayId,
@@ -370,24 +394,30 @@ function ProjectSpecificActivitiesEditor({
                     ...current,
                     id: editingId,
                     wording: value,
-                    projectDetails,
+                    projectDetails: editProjectDetails,
                   },
                 })
+              }}
+              required
+            />
+          </label>
+          <label>
+            <span>Project-specific details/notes — optional</span>
+            <textarea
+              rows={2}
+              value={
+                editingId ? editProjectDetails : draftProjectDetails
               }
-            }}
-            required
-          />
-        </label>
-        <label>
-          <span>Project-specific details</span>
-          <textarea
-            rows={2}
-            value={projectDetails}
-            onChange={(event) => {
-              const value = event.target.value
-              setProjectDetails(value)
-              if (editingId) {
-                const current = activities.find((item) => item.id === editingId)
+              onChange={(event) => {
+                const value = event.target.value
+                if (!editingId) {
+                  setDraftProjectDetails(value)
+                  return
+                }
+                setEditProjectDetails(value)
+                const current = activities.find(
+                  (item) => item.id === editingId,
+                )
                 dispatch({
                   type: 'updateProjectSpecificActivity',
                   pathwayId,
@@ -395,28 +425,41 @@ function ProjectSpecificActivitiesEditor({
                   activity: {
                     ...current,
                     id: editingId,
-                    wording,
+                    wording: editWording,
                     projectDetails: value,
                   },
                 })
-              }
-            }}
-          />
-        </label>
-        <div className="inline-actions">
-          <button className="button secondary" type="submit">
-            {editingId ? 'Done editing' : 'Add another activity'}
-          </button>
-          <SessionSaveFeedback
-            message={editingId ? SAVED_SESSION_MESSAGE : feedback}
-          />
-          {editingId && (
-            <button className="text-button" type="button" onClick={reset}>
-              Close editor
+              }}
+            />
+          </label>
+          <div className="inline-actions">
+            <button className="button secondary" type="submit">
+              {editingId ? 'Done editing' : 'Add activity'}
             </button>
-          )}
-        </div>
-      </form>
+            <SessionSaveFeedback
+              message={editingId ? SAVED_SESSION_MESSAGE : feedback}
+            />
+            {editingId && (
+              <button
+                className="text-button"
+                type="button"
+                onClick={finishEditing}
+              >
+                Close editor
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+      {!creating && !editingId && (
+        <button
+          className="button secondary"
+          type="button"
+          onClick={startCreating}
+        >
+          Add another activity
+        </button>
+      )}
     </div>
   )
 }

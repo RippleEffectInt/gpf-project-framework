@@ -563,9 +563,13 @@ describe('linear project-design journey', () => {
     fireEvent.click(
       within(customActivityItem).getByRole('button', { name: 'Edit' }),
     )
-    const customDetails = within(
-      firstStepSummary.parentElement!,
-    ).getByLabelText('Project-specific details')
+    const customEditor = customActivityItem.closest('.custom-config-section')
+    if (!(customEditor instanceof HTMLElement)) {
+      throw new Error('Expected custom activity editor.')
+    }
+    const customDetails = within(customEditor).getByLabelText(
+      'Project-specific details/notes — optional',
+    )
     fireEvent.change(customDetails, {
       target: { value: 'Autosaved custom activity details' },
     })
@@ -594,14 +598,20 @@ describe('linear project-design journey', () => {
     fireEvent.click(
       within(returnedCustomItem).getByRole('button', { name: 'Edit' }),
     )
+    const returnedCustomEditor = returnedCustomItem.closest(
+      '.custom-config-section',
+    )
+    if (!(returnedCustomEditor instanceof HTMLElement)) {
+      throw new Error('Expected returned custom activity editor.')
+    }
     expect(
-      within(returnedStepSummary.parentElement!).getByLabelText(
-        'Project-specific details',
+      within(returnedCustomEditor).getByLabelText(
+        'Project-specific details/notes — optional',
       ),
     ).toHaveValue('Autosaved custom activity details')
   })
 
-  it('shows planned output immediately after adding a custom activity', () => {
+  it('creates distinct custom activities without copying draft or output state', () => {
     const configuredState = addPathway(
       initialProjectDesignState,
       outcome.id,
@@ -624,33 +634,123 @@ describe('linear project-design journey', () => {
       throw new Error('Expected Intermediate Outcome configuration.')
     }
     fireEvent.click(summary)
-    const step = within(summary.parentElement)
-    fireEvent.change(step.getByLabelText('Activity wording *'), {
+    const customSection = within(summary.parentElement)
+      .getByRole('heading', { name: 'Project-specific activities' })
+      .closest('.custom-config-section')
+    if (!(customSection instanceof HTMLElement)) {
+      throw new Error('Expected custom activity section.')
+    }
+    const editor = within(customSection)
+    expect(
+      editor.getByRole('button', { name: 'Add activity' }),
+    ).toBeInTheDocument()
+    fireEvent.change(editor.getByLabelText('Activity wording *'), {
       target: { value: 'Facilitate local planning sessions' },
     })
-    fireEvent.change(step.getByLabelText('Project-specific details'), {
+    fireEvent.change(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+      {
       target: { value: 'Include local leaders' },
-    })
+      },
+    )
     fireEvent.click(
-      step.getByRole('button', { name: 'Add another activity' }),
+      editor.getByRole('button', { name: 'Add activity' }),
     )
 
-    const activityItem = step
+    const activityItem = editor
       .getByText('Facilitate local planning sessions')
       .closest('li')
-    if (!activityItem) throw new Error('Expected the new activity card.')
-    const activityCard = within(activityItem)
-    expect(activityCard.getByText('Include local leaders')).toBeInTheDocument()
-    expect(activityCard.getByText('Planned output')).toBeInTheDocument()
-    expect(activityCard.getByLabelText('Planned quantity')).toBeInTheDocument()
-    expect(activityCard.getByLabelText('Output unit')).toBeInTheDocument()
-    expect(activityCard.getByLabelText('Output wording')).toBeInTheDocument()
+    if (!(activityItem instanceof HTMLElement)) {
+      throw new Error('Expected the new activity card.')
+    }
+    const firstCard = within(activityItem)
+    expect(firstCard.getByText('Include local leaders')).toBeInTheDocument()
+    expect(firstCard.getByText('Planned output')).toBeInTheDocument()
+    expect(firstCard.getByLabelText('Planned quantity')).toHaveValue('')
+    expect(firstCard.getByLabelText('Output unit')).toHaveValue('')
     expect(
-      step.getByRole('button', { name: 'Done editing' }),
+      firstCard.getByRole('button', { name: 'Edit wording' }),
     ).toBeInTheDocument()
     expect(
-      step.getAllByText('Facilitate local planning sessions'),
+      editor.getByRole('button', { name: 'Done editing' }),
+    ).toBeInTheDocument()
+    expect(
+      editor.getAllByText('Facilitate local planning sessions'),
     ).toHaveLength(1)
+
+    fireEvent.change(firstCard.getByLabelText('Planned quantity'), {
+      target: { value: '5' },
+    })
+    fireEvent.change(firstCard.getByLabelText('Output unit'), {
+      target: { value: 'events' },
+    })
+    fireEvent.click(firstCard.getByRole('button', { name: 'Edit wording' }))
+    fireEvent.change(firstCard.getByLabelText('Output wording'), {
+      target: { value: 'First activity output' },
+    })
+    fireEvent.click(editor.getByRole('button', { name: 'Done editing' }))
+    expect(editor.getAllByText('Project-specific activity')).toHaveLength(1)
+    expect(
+      editor.getByRole('button', { name: 'Add another activity' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      editor.getByRole('button', { name: 'Add another activity' }),
+    )
+    expect(editor.getByLabelText('Activity wording *')).toHaveValue('')
+    expect(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+    ).toHaveValue('')
+    fireEvent.change(editor.getByLabelText('Activity wording *'), {
+      target: { value: 'Run producer workshops' },
+    })
+    fireEvent.change(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+      { target: { value: 'Second activity notes' } },
+    )
+    fireEvent.click(editor.getByRole('button', { name: 'Add activity' }))
+
+    const secondActivityItem = editor
+      .getByText('Run producer workshops')
+      .closest('li')
+    if (!(secondActivityItem instanceof HTMLElement)) {
+      throw new Error('Expected the second activity card.')
+    }
+    const secondCard = within(secondActivityItem)
+    expect(secondCard.getByLabelText('Planned quantity')).toHaveValue('')
+    expect(secondCard.getByLabelText('Output unit')).toHaveValue('')
+    fireEvent.click(secondCard.getByRole('button', { name: 'Edit wording' }))
+    expect(secondCard.getByLabelText('Output wording')).toHaveValue('')
+    fireEvent.change(secondCard.getByLabelText('Planned quantity'), {
+      target: { value: '8' },
+    })
+    fireEvent.change(secondCard.getByLabelText('Output unit'), {
+      target: { value: 'people' },
+    })
+    fireEvent.change(secondCard.getByLabelText('Output wording'), {
+      target: { value: 'Second activity output' },
+    })
+    fireEvent.click(editor.getByRole('button', { name: 'Done editing' }))
+
+    fireEvent.click(firstCard.getByRole('button', { name: 'Edit' }))
+    fireEvent.change(editor.getByLabelText('Activity wording *'), {
+      target: { value: 'Facilitate revised local planning sessions' },
+    })
+    fireEvent.change(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+      { target: { value: 'Revised first activity notes' } },
+    )
+    fireEvent.click(editor.getByRole('button', { name: 'Done editing' }))
+
+    expect(
+      editor.getByText('Facilitate revised local planning sessions'),
+    ).toBeInTheDocument()
+    expect(editor.getByText('Run producer workshops')).toBeInTheDocument()
+    expect(
+      editor.getAllByText('Project-specific activity'),
+    ).toHaveLength(2)
+    expect(firstCard.getByLabelText('Planned quantity')).toHaveValue('5')
+    expect(secondCard.getByLabelText('Planned quantity')).toHaveValue('8')
   })
 
   it('saves before returning to the overview with optional sections empty', async () => {
@@ -1442,7 +1542,7 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
       screen.getAllByRole('button', { name: 'Add another indicator' }).length,
     ).toBeGreaterThan(0)
     expect(
-      screen.getAllByRole('button', { name: 'Add another activity' }).length,
+      screen.getAllByRole('button', { name: 'Add activity' }).length,
     ).toBeGreaterThan(0)
     expect(
       screen.getAllByRole('button', { name: 'Add another input' }).length,
@@ -1463,6 +1563,46 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
     expect(
       screen.getByText('Add a Primary indicator for Intermediate Outcome 1'),
     ).toBeInTheDocument()
+  })
+
+  it('uses the explicit Add activity workflow for Custom Innovation activities', () => {
+    renderApplication('/design/outcomes')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add custom innovation outcome' }),
+    )
+    const customOutcomeStep = document.querySelector('.custom-io-editor')
+    if (!(customOutcomeStep instanceof HTMLElement)) {
+      throw new Error('Expected a Custom Innovation Intermediate Outcome.')
+    }
+    const editor = within(customOutcomeStep)
+    fireEvent.change(editor.getByLabelText('Activity wording *'), {
+      target: { value: 'Pilot a custom delivery model' },
+    })
+    fireEvent.change(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+      { target: { value: 'Custom activity notes' } },
+    )
+
+    fireEvent.click(editor.getByRole('button', { name: 'Add activity' }))
+
+    const activityItem = editor
+      .getByText('Pilot a custom delivery model')
+      .closest('li')
+    if (!(activityItem instanceof HTMLElement)) {
+      throw new Error('Expected saved Custom Innovation activity.')
+    }
+    expect(within(activityItem).getByText('Planned output')).toBeInTheDocument()
+    expect(
+      within(activityItem).getByRole('button', { name: 'Edit wording' }),
+    ).toBeInTheDocument()
+    fireEvent.click(editor.getByRole('button', { name: 'Done editing' }))
+    fireEvent.click(
+      editor.getByRole('button', { name: 'Add another activity' }),
+    )
+    expect(editor.getByLabelText('Activity wording *')).toHaveValue('')
+    expect(
+      editor.getByLabelText('Project-specific details/notes — optional'),
+    ).toHaveValue('')
   })
 
   it('allows more than five Intermediate Outcomes', () => {

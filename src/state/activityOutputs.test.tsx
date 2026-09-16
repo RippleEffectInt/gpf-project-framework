@@ -304,10 +304,10 @@ describe('planned output wording', () => {
         activity={{ text: 'Ambiguous activity', outputPhrase: null }}
       />,
     )
-    expect(screen.getByLabelText('Output wording')).toBeInTheDocument()
     expect(
       screen.getByText(/no usable framework output phrase/i),
     ).toBeInTheDocument()
+    expect(screen.getByLabelText('Output wording')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Output wording'), {
       target: { value: 'Partnership planning support delivered' },
     })
