@@ -2894,16 +2894,85 @@ label .field-error {
   padding-left: 1.1rem;
 }
 
-.review-contributes-list li,
-.review-pathway-groups {
+.review-contributes-list li {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.6rem 1rem;
 }
 
-.review-pathway-groups {
-  grid-template-columns: 1fr 1fr;
+.review-outcome-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.review-outcome-card {
+  margin-bottom: 0;
+  padding: 0.95rem 1.05rem;
+}
+
+.review-outcome-source {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.review-outcome-statement {
+  margin: 0.28rem 0 0.45rem;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.review-outcome-impacts,
+.review-outcome-indicator p,
+.review-outcome-pathway-row ul {
+  margin: 0;
+  font-weight: 400;
+}
+
+.review-outcome-impacts {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.review-outcome-impacts span,
+.review-outcome-label,
+.review-outcome-relationship {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.review-outcome-indicator,
+.review-outcome-pathways {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.7rem;
+}
+
+.review-outcome-pathways {
+  gap: 0.45rem;
+}
+
+.review-outcome-pathway-row {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.review-outcome-pathway-row ul {
+  padding-left: 1.05rem;
+}
+
+.review-custom-details {
   margin-top: 1rem;
+}
+
+.review-custom-details h3 {
+  margin: 1rem 0 0.65rem;
+  font-size: 0.95rem;
 }
 
 .review-io-details {
@@ -2941,6 +3010,10 @@ label .field-error {
   background: var(--surface);
 }
 
+.review-custom-details .review-definition-list {
+  gap: 0.55rem;
+}
+
 .needs-attention,
 .basket-requirement.needs-attention,
 .configuration-overview-card.needs-attention {
@@ -2966,7 +3039,6 @@ label .field-error {
 
 @media (max-width: 800px) {
   .custom-io-editor,
-  .review-pathway-groups,
   .review-contributes-list li,
   .month-year-selects {
     grid-template-columns: 1fr;

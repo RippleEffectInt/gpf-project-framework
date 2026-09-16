@@ -1135,6 +1135,86 @@ describe('custom innovation and project review', () => {
     ).toBeInTheDocument()
   })
 
+  it('reviews standard and custom outcomes with the same compact card design', () => {
+    const state = confirm(
+      completeCustomState(
+        addPathway(
+          initialProjectDesignState,
+          outcome.id,
+          primaryPathway,
+          'primary',
+        ),
+      ),
+    )
+    renderJourney('/design/review', state)
+
+    const standardSection = screen
+      .getByRole('heading', { name: 'Standard Final Outcomes' })
+      .closest('section')
+    if (!standardSection) {
+      throw new Error('Expected Standard Final Outcomes section.')
+    }
+    const customSection = screen
+      .getByRole('heading', { name: 'Custom Innovation outcome' })
+      .closest('section')
+    if (!customSection) {
+      throw new Error('Expected Custom Innovation section.')
+    }
+
+    expect(
+      within(standardSection).getByRole('link', {
+        name: 'Change Final Outcomes',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(customSection).getByRole('link', {
+        name: 'Edit custom innovation outcome',
+      }),
+    ).toBeInTheDocument()
+
+    const standardCard = within(standardSection)
+      .getByRole('heading', { name: outcome.statement })
+      .closest('article')
+    if (!standardCard) {
+      throw new Error('Expected a standard Final Outcome review card.')
+    }
+    expect(within(standardCard).getByText('Standard framework')).toBeInTheDocument()
+    expect(within(standardCard).getByText(/Impact Areas:/)).toBeInTheDocument()
+    expect(within(standardCard).getByText('Primary indicator')).toBeInTheDocument()
+    expect(within(standardCard).getByText('Pathways')).toBeInTheDocument()
+    expect(within(standardCard).getByText('Primary')).toBeInTheDocument()
+    expect(within(standardCard).getByText(primaryPathway.pathway.name)).toBeInTheDocument()
+    expect(within(standardCard).queryByText('Related')).not.toBeInTheDocument()
+    expect(
+      within(standardCard).queryByText('No Related pathways selected.'),
+    ).not.toBeInTheDocument()
+
+    const customCard = within(customSection)
+      .getByRole('heading', {
+        name: 'Smallholder farmers access reliable local seed markets.',
+      })
+      .closest('article')
+    if (!customCard) {
+      throw new Error('Expected a Custom Innovation review card.')
+    }
+    expect(within(customCard).getByText('Custom innovation')).toBeInTheDocument()
+    expect(within(customCard).getByText(/Impact Areas:/)).toBeInTheDocument()
+    expect(within(customCard).getByText('Primary indicator')).toBeInTheDocument()
+    expect(within(customCard).getByText('Pathways')).toBeInTheDocument()
+    expect(
+      within(customCard).getByText('Local seed market development'),
+    ).toBeInTheDocument()
+    expect(within(customCard).queryByText('Related')).not.toBeInTheDocument()
+    expect(
+      within(customSection).getByText('Intermediate Outcome chain'),
+    ).toBeInTheDocument()
+    expect(
+      within(customSection).getByText(
+        'Local seed producers increase quality supply.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('reviews a shared pathway once with both relationship types', () => {
     const secondOutcome = framework.finalOutcomes.find(
       (candidate) =>
@@ -1191,6 +1271,7 @@ describe('custom innovation and project review', () => {
       within(sharedCard).queryByText('Primary Final Outcome'),
     ).not.toBeInTheDocument()
     expect(screen.getByText('Selected pathways')).toBeInTheDocument()
+    expect(screen.queryByText('Custom innovation')).not.toBeInTheDocument()
     expect(screen.queryByText('CUSTOM INNOVATION')).not.toBeInTheDocument()
     expect(screen.queryByText(/Shared pathway/i)).not.toBeInTheDocument()
 
@@ -2346,14 +2427,13 @@ describe('mandatory activities, configure return and review relationships', () =
     expect(
       within(finalOutcomesSection).getByRole('heading', {
         level: 3,
-        name: currentOutcomeLabel,
+        name: outcome.statement,
       }),
     ).toBeInTheDocument()
     expect(
       within(finalOutcomesSection).getByRole('heading', {
         level: 3,
-        name:
-          relatedPrimaryOutcome.shortLabel ?? relatedPrimaryOutcome.statement,
+        name: relatedPrimaryOutcome.statement,
       }),
     ).toBeInTheDocument()
     const relatedHeadings = screen.getAllByRole('heading', {

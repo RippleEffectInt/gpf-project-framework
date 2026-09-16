@@ -55,6 +55,62 @@ function selectedLinksForOutcome(
   )
 }
 
+function FinalOutcomeReviewCard({
+  source,
+  statement,
+  impactAreas,
+  primaryIndicator,
+  primaryPathways,
+  relatedPathways = [],
+}: {
+  source: 'Standard framework' | 'Custom innovation'
+  statement: string
+  impactAreas: string[]
+  primaryIndicator: string
+  primaryPathways: string[]
+  relatedPathways?: string[]
+}) {
+  return (
+    <article className="review-outcome-card">
+      <span className="review-outcome-source">{source}</span>
+      <h3 className="review-outcome-statement">{statement}</h3>
+      <p className="review-outcome-impacts">
+        <span>Impact Areas:</span>{' '}
+        {impactAreas.length > 0 ? impactAreas.join(', ') : 'None'}
+      </p>
+      <div className="review-outcome-indicator">
+        <span className="review-outcome-label">Primary indicator</span>
+        <p>{primaryIndicator}</p>
+      </div>
+      <div className="review-outcome-pathways">
+        <span className="review-outcome-label">Pathways</span>
+        <div className="review-outcome-pathway-row">
+          <span className="review-outcome-relationship">Primary</span>
+          <ul>
+            {primaryPathways.length > 0 ? (
+              primaryPathways.map((pathway) => (
+                <li key={pathway}>{pathway}</li>
+              ))
+            ) : (
+              <li>None selected</li>
+            )}
+          </ul>
+        </div>
+        {relatedPathways.length > 0 && (
+          <div className="review-outcome-pathway-row">
+            <span className="review-outcome-relationship">Related</span>
+            <ul>
+              {relatedPathways.map((pathway) => (
+                <li key={pathway}>{pathway}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </article>
+  )
+}
+
 function IntermediateOutcomeReview({
   data,
   configuration,
@@ -198,66 +254,50 @@ function CustomInnovationReview({
   )
   return (
     <section
-      className="review-custom-section"
+      className="review-section"
       aria-labelledby="custom-innovation-heading"
     >
-      <div className="custom-innovation-banner">
-        <span className="relationship-badge">Custom innovation</span>
-        <h2 id="custom-innovation-heading">CUSTOM INNOVATION</h2>
-        <p>
-          This content is project-specific and is not part of the standard
-          organisational framework.
-        </p>
-        <Link className="button secondary" to="/design/custom-innovation">
+      <div className="review-section-heading">
+        <h2 id="custom-innovation-heading">Custom Innovation outcome</h2>
+        <Link to="/design/custom-innovation">
           Edit custom innovation outcome
         </Link>
       </div>
-      <dl className="review-definition-list">
-        <div>
-          <dt>Short label</dt>
-          <dd>{custom.shortLabel}</dd>
-        </div>
-        <div>
-          <dt>Final Outcome statement</dt>
-          <dd>{custom.statement}</dd>
-        </div>
-        <div>
-          <dt>Rationale</dt>
-          <dd>{custom.rationale}</dd>
-        </div>
-        <div>
-          <dt>Linked organisational Impact Areas</dt>
-          <dd>
-            {impactAreas.length === 0
-              ? 'None selected'
-              : impactAreas.map((impact) => impact.theme).join(', ')}
-          </dd>
-        </div>
-        <div>
-          <dt>Primary indicator</dt>
-          <dd>
-            {custom.primaryIndicator.wording}
-            {custom.primaryIndicator.measurementNotes
+      <div className="review-outcome-list">
+        <FinalOutcomeReviewCard
+          source="Custom innovation"
+          statement={custom.statement}
+          impactAreas={impactAreas.map((impact) => impact.theme)}
+          primaryIndicator={`${custom.primaryIndicator.wording}${
+            custom.primaryIndicator.measurementNotes
               ? ` — ${custom.primaryIndicator.measurementNotes}`
-              : ''}
-          </dd>
-        </div>
-        <div>
-          <dt>Custom pathway</dt>
-          <dd>{custom.pathway.name}</dd>
-        </div>
-        <div>
-          <dt>Pathway description</dt>
-          <dd>{custom.pathway.description}</dd>
-        </div>
-        <div>
-          <dt>Why this pathway?</dt>
-          <dd>{custom.pathway.rationale}</dd>
-        </div>
-      </dl>
-      <h3>Intermediate Outcome chain</h3>
-      <ol className="review-custom-io-list">
-        {custom.pathway.intermediateOutcomes.map((outcome) => (
+              : ''
+          }`}
+          primaryPathways={[custom.pathway.name]}
+        />
+      </div>
+      <div className="review-custom-details">
+        <dl className="review-definition-list">
+          <div>
+            <dt>Short label</dt>
+            <dd>{custom.shortLabel}</dd>
+          </div>
+          <div>
+            <dt>Rationale</dt>
+            <dd>{custom.rationale}</dd>
+          </div>
+          <div>
+            <dt>Pathway description</dt>
+            <dd>{custom.pathway.description}</dd>
+          </div>
+          <div>
+            <dt>Why this pathway?</dt>
+            <dd>{custom.pathway.rationale}</dd>
+          </div>
+        </dl>
+        <h3>Intermediate Outcome chain</h3>
+        <ol className="review-custom-io-list">
+          {custom.pathway.intermediateOutcomes.map((outcome) => (
           <li key={outcome.id}>
             <details className="review-io-details">
               <summary>
@@ -323,8 +363,9 @@ function CustomInnovationReview({
               </div>
             </details>
           </li>
-        ))}
-      </ol>
+          ))}
+        </ol>
+      </div>
     </section>
   )
 }
@@ -504,56 +545,25 @@ export function ReviewProjectPage() {
                 'related',
               )
               return (
-                <article className="review-outcome-card" key={outcomeId}>
-                  <span className="eyebrow">Standard Final Outcome</span>
-                  <h3>{outcome.shortLabel ?? outcome.statement}</h3>
-                  {outcome.shortLabel && <p>{outcome.statement}</p>}
-                  <p>
-                    <strong>Linked Impact Areas:</strong>{' '}
-                    {outcomeImpacts.map((impact) => impact.theme).join(', ') ||
-                      'None'}
-                  </p>
-                  <p>
-                    <strong>Mandatory Primary indicator:</strong>{' '}
-                    {primaryIndicator?.text ?? 'Primary indicator missing'}
-                  </p>
-                  <div className="review-pathway-groups">
-                    <div>
-                      <h4>Primary pathways</h4>
-                      {primaryLinks.length === 0 ? (
-                        <p className="neutral-note">
-                          No Primary pathways selected.
-                        </p>
-                      ) : (
-                        <ul>
-                          {primaryLinks.map((link) => (
-                            <li key={link.pathwayId}>
-                              {getPathway(data, link.pathwayId)?.name ??
-                                link.pathwayId}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div>
-                      <h4>Related pathways</h4>
-                      {relatedLinks.length === 0 ? (
-                        <p className="neutral-note">
-                          No Related pathways selected.
-                        </p>
-                      ) : (
-                        <ul>
-                          {relatedLinks.map((link) => (
-                            <li key={link.pathwayId}>
-                              {getPathway(data, link.pathwayId)?.name ??
-                                link.pathwayId}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </article>
+                <FinalOutcomeReviewCard
+                  key={outcomeId}
+                  source="Standard framework"
+                  statement={outcome.statement}
+                  impactAreas={outcomeImpacts.map((impact) => impact.theme)}
+                  primaryIndicator={
+                    primaryIndicator?.text ?? 'Primary indicator missing'
+                  }
+                  primaryPathways={primaryLinks.map(
+                    (link) =>
+                      getPathway(data, link.pathwayId)?.name ??
+                      link.pathwayId,
+                  )}
+                  relatedPathways={relatedLinks.map(
+                    (link) =>
+                      getPathway(data, link.pathwayId)?.name ??
+                      link.pathwayId,
+                  )}
+                />
               )
             })}
           </div>
