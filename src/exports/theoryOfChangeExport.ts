@@ -26,6 +26,13 @@ export interface TheoryOfChangeSvgDocument {
   width: number
   height: number
   nodeIds: string[]
+  laneBounds: TheoryOfChangeExportBounds[]
+  nodeBounds: TheoryOfChangeExportBounds[]
+}
+
+export interface TheoryOfChangeExportBounds {
+  top: number
+  bottom: number
 }
 
 export interface TheoryOfChangePdfPage {
@@ -35,10 +42,15 @@ export interface TheoryOfChangePdfPage {
 }
 
 export interface TheoryOfChangePdfPlan {
+  orientation: 'landscape'
+  format: 'a3' | 'a2' | 'a1'
   pageWidth: number
   pageHeight: number
   margin: number
+  renderX: number
   renderWidth: number
+  scale: number
+  overlap: number
   pages: TheoryOfChangePdfPage[]
 }
 
@@ -228,6 +240,14 @@ export function buildTheoryOfChangeSvg(
     width,
     height,
     nodeIds: positioned.nodes.map((item) => item.node.id),
+    laneBounds: positioned.lanes.map((lane) => ({
+      top: lane.y + GRAPH_TOP,
+      bottom: lane.y + GRAPH_TOP + lane.height,
+    })),
+    nodeBounds: positioned.nodes.map((item) => ({
+      top: item.position.y + GRAPH_TOP,
+      bottom: item.position.y + GRAPH_TOP + item.height,
+    })),
     svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Theory of Change for ${title}">
       <defs>${markers}</defs>
       <rect width="${width}" height="${height}" fill="#ffffff"/>
@@ -301,36 +321,139 @@ export async function renderTheoryOfChangePng(
   return canvasBlob(canvas)
 }
 
+const PDF_PAGE_FORMATS = [
+  { format: 'a3', width: 420, height: 297 },
+  { format: 'a2', width: 594, height: 420 },
+  { format: 'a1', width: 841, height: 594 },
+] as const
+const PDF_BODY_TEXT_SIZE = 12
+const MINIMUM_LEGIBLE_TEXT_POINTS = 7.5
+const MILLIMETRES_PER_POINT = 25.4 / 72
+const TILE_OVERLAP = 12
+
+function textSizeInPoints(scale: number): number {
+  return (
+    (PDF_BODY_TEXT_SIZE * scale) /
+    MILLIMETRES_PER_POINT
+  )
+}
+
+function lineIntersectsNode(
+  line: number,
+  nodeBounds: TheoryOfChangeExportBounds[],
+): boolean {
+  return nodeBounds.some(
+    (bounds) => line > bounds.top - 2 && line < bounds.bottom + 2,
+  )
+}
+
+function chooseTileEnd(
+  document: TheoryOfChangeSvgDocument,
+  sourceY: number,
+  maximumEnd: number,
+): number {
+  if (maximumEnd >= document.height) return document.height
+  const minimumUsefulEnd =
+    sourceY + (maximumEnd - sourceY) * 0.55
+  const laneBreaks = document.laneBounds
+    .flatMap((lane, index) => {
+      const nextLane = document.laneBounds[index + 1]
+      return nextLane
+        ? [(lane.bottom + nextLane.top) / 2]
+        : [lane.bottom + 8]
+    })
+    .filter(
+      (candidate) =>
+        candidate >= minimumUsefulEnd &&
+        candidate <= maximumEnd &&
+        !lineIntersectsNode(candidate, document.nodeBounds),
+    )
+  const laneBreak = laneBreaks.at(-1)
+  if (laneBreak !== undefined) return laneBreak
+
+  for (
+    let candidate = Math.floor(maximumEnd);
+    candidate >= Math.ceil(minimumUsefulEnd);
+    candidate -= 1
+  ) {
+    if (!lineIntersectsNode(candidate, document.nodeBounds)) {
+      return candidate
+    }
+  }
+  return maximumEnd
+}
+
 export function planTheoryOfChangePdf(
-  svgWidth: number,
-  svgHeight: number,
+  document: TheoryOfChangeSvgDocument,
 ): TheoryOfChangePdfPlan {
-  const pageWidth = 420
-  const pageHeight = 297
   const margin = 10
-  const renderWidth = pageWidth - margin * 2
-  const availableHeight = pageHeight - margin * 2
-  const millimetresPerSvgUnit = renderWidth / svgWidth
-  const sourceHeightPerPage = availableHeight / millimetresPerSvgUnit
+  const singlePage = PDF_PAGE_FORMATS.find((page) => {
+    const availableWidth = page.width - margin * 2
+    const availableHeight = page.height - margin * 2
+    const scale = Math.min(
+      availableWidth / document.width,
+      availableHeight / document.height,
+    )
+    return textSizeInPoints(scale) >= MINIMUM_LEGIBLE_TEXT_POINTS
+  })
+  if (singlePage) {
+    const scale = Math.min(
+      (singlePage.width - margin * 2) / document.width,
+      (singlePage.height - margin * 2) / document.height,
+    )
+    const renderWidth = document.width * scale
+    return {
+      orientation: 'landscape',
+      format: singlePage.format,
+      pageWidth: singlePage.width,
+      pageHeight: singlePage.height,
+      margin,
+      renderX: (singlePage.width - renderWidth) / 2,
+      renderWidth,
+      scale,
+      overlap: 0,
+      pages: [
+        {
+          sourceY: 0,
+          sourceHeight: document.height,
+          renderHeight: document.height * scale,
+        },
+      ],
+    }
+  }
+
+  const tiledPage = PDF_PAGE_FORMATS[0]
+  const renderWidth = tiledPage.width - margin * 2
+  const availableHeight = tiledPage.height - margin * 2
+  const scale = renderWidth / document.width
+  const sourceHeightPerPage = availableHeight / scale
   const pages: TheoryOfChangePdfPage[] = []
   let sourceY = 0
-  while (sourceY < svgHeight) {
-    const sourceHeight = Math.min(
-      sourceHeightPerPage,
-      svgHeight - sourceY,
+  while (sourceY < document.height) {
+    const end = chooseTileEnd(
+      document,
+      sourceY,
+      Math.min(document.height, sourceY + sourceHeightPerPage),
     )
+    const sourceHeight = end - sourceY
     pages.push({
       sourceY,
       sourceHeight,
-      renderHeight: sourceHeight * millimetresPerSvgUnit,
+      renderHeight: sourceHeight * scale,
     })
-    sourceY += sourceHeight
+    if (end >= document.height) break
+    sourceY = Math.max(0, end - TILE_OVERLAP)
   }
   return {
-    pageWidth,
-    pageHeight,
+    orientation: 'landscape',
+    format: tiledPage.format,
+    pageWidth: tiledPage.width,
+    pageHeight: tiledPage.height,
     margin,
+    renderX: margin,
     renderWidth,
+    scale,
+    overlap: TILE_OVERLAP,
     pages,
   }
 }
@@ -342,16 +465,21 @@ export async function renderTheoryOfChangePdf(
   const { jsPDF } = await import('jspdf')
   const svg = buildTheoryOfChangeSvg(graph, projectTitle)
   const rendered = await renderSvgCanvas(svg, 2)
-  const plan = planTheoryOfChangePdf(svg.width, svg.height)
+  const plan = planTheoryOfChangePdf(svg)
   const pdf = new jsPDF({
-    orientation: 'landscape',
+    orientation: plan.orientation,
     unit: 'mm',
-    format: 'a3',
+    format: [plan.pageWidth, plan.pageHeight],
     compress: true,
   })
 
   plan.pages.forEach((page, index) => {
-    if (index > 0) pdf.addPage('a3', 'landscape')
+    if (index > 0) {
+      pdf.addPage(
+        [plan.pageWidth, plan.pageHeight],
+        plan.orientation,
+      )
+    }
     const sourceY = Math.floor(page.sourceY * rendered.scale)
     const sourceHeight = Math.min(
       rendered.canvas.height - sourceY,
@@ -378,7 +506,7 @@ export async function renderTheoryOfChangePdf(
     pdf.addImage(
       segment.toDataURL('image/png'),
       'PNG',
-      plan.margin,
+      plan.renderX,
       plan.margin,
       plan.renderWidth,
       page.renderHeight,

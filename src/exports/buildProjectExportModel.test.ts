@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 import {
   CURRENT_FRAMEWORK,
@@ -508,6 +509,124 @@ describe('saved project export model', () => {
     ).toBe(true)
   })
 
+  it('carries every persisted input through the export model and workbook', async () => {
+    const { record } = exportRecord()
+    const model = buildProjectExportModelFromRecord(record)
+    const blob = await renderProjectDesignWorkbook(model)
+    const workbook = new ExcelJS.Workbook()
+    const binary = Buffer.from(
+      await blob.arrayBuffer(),
+    ) as unknown as Awaited<
+      ReturnType<typeof workbook.xlsx.writeBuffer>
+    >
+    await workbook.xlsx.load(binary)
+    const sheet = workbook.getWorksheet('Inputs')
+    const workbookRows =
+      sheet
+        ?.getRows(2, Math.max(0, sheet.rowCount - 1))
+        ?.map((row) =>
+          Array.isArray(row.values) ? row.values.slice(1) : [],
+        ) ?? []
+
+    expect(model.inputs).toHaveLength(2)
+    const standardInput = model.inputs.find(
+      (input) => input.input === 'Facilitator time',
+    )
+    expect(standardInput?.finalOutcome.split('; ')).toHaveLength(2)
+    expect(standardInput?.pathway).not.toBe('')
+    expect(standardInput?.intermediateOutcome).not.toBe('')
+    expect(model.inputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pathway: expect.any(String),
+          intermediateOutcome: expect.any(String),
+          inputCategory: 'Training / facilitation',
+          input: 'Facilitator time',
+        }),
+        expect.objectContaining({
+          finalOutcome:
+            'Local systems provide inclusive resilience support',
+          pathway: 'Custom resilience pathway',
+          intermediateOutcome:
+            'Partners receive coordination support',
+          inputCategory: 'Training / facilitation',
+          input: 'Workshop facilitation',
+        }),
+      ]),
+    )
+    expect(workbookRows).toEqual(
+      model.inputs.map((input) => [
+        input.finalOutcome,
+        input.pathway,
+        input.intermediateOutcome,
+        input.inputCategory,
+        input.input,
+      ]),
+    )
+  })
+
+  it('makes each shared-pathway Final Outcome relationship explicit in the donor logframe', () => {
+    const { record } = exportRecord()
+    const model = buildProjectExportModelFromRecord(record)
+    const standardIntermediateRows = model.donorLogframe.filter(
+      (row) =>
+        row.resultsLevel === 'Intermediate Outcome' &&
+        !row.pathwayContext.includes('Custom innovation'),
+    )
+    const primaryRows = standardIntermediateRows.filter((row) =>
+      row.pathwayContext.includes('(Primary)'),
+    )
+    const relatedRows = standardIntermediateRows.filter((row) =>
+      row.pathwayContext.includes('(Related)'),
+    )
+
+    expect(primaryRows.length).toBeGreaterThan(0)
+    expect(relatedRows.length).toBeGreaterThan(0)
+    expect(primaryRows.every((row) => row.finalOutcome)).toBe(true)
+    expect(relatedRows.every((row) => row.finalOutcome)).toBe(true)
+    expect(
+      new Set(standardIntermediateRows.map((row) => row.finalOutcome))
+        .size,
+    ).toBe(2)
+    model.donorLogframe
+      .filter((row) => row.resultsLevel === 'Final Outcome')
+      .forEach((row) => {
+        expect(row.finalOutcome).toBe(row.resultStatement)
+      })
+  })
+
+  it('exports a single explicit Final Outcome for a single-outcome pathway', () => {
+    const { record } = exportRecord()
+    const singleOutcomeRecord = structuredClone(record)
+    const primaryLink =
+      singleOutcomeRecord.project.design.outcomePathwayLinks.find(
+        (link) => link.relationshipType === 'primary',
+      )
+    if (!primaryLink) throw new Error('Expected a Primary relationship.')
+    singleOutcomeRecord.project.design.selectedFinalOutcomeIds = [
+      primaryLink.finalOutcomeId,
+    ]
+    singleOutcomeRecord.project.design.outcomePathwayLinks =
+      singleOutcomeRecord.project.design.outcomePathwayLinks.filter(
+        (link) => link.finalOutcomeId === primaryLink.finalOutcomeId,
+      )
+    singleOutcomeRecord.project.design.finalOutcomeSelectionSources = {
+      [primaryLink.finalOutcomeId]: 'direct',
+    }
+
+    const model =
+      buildProjectExportModelFromRecord(singleOutcomeRecord)
+    const rows = model.donorLogframe.filter(
+      (row) =>
+        row.resultsLevel === 'Intermediate Outcome' &&
+        !row.pathwayContext.includes('Custom innovation'),
+    )
+    expect(new Set(rows.map((row) => row.finalOutcome)).size).toBe(1)
+    expect(
+      rows.every((row) => row.pathwayContext.includes('(Primary)')),
+    ).toBe(true)
+  })
+
   it('creates every required workbook sheet with filterable columns', () => {
     const { record } = exportRecord()
     const exportModel = buildProjectExportModelFromRecord(record)
@@ -542,6 +661,18 @@ describe('saved project export model', () => {
       ySplit: 1,
     })
     expect(activities?.autoFilter).toBeTruthy()
+    expect(
+      workbook.getWorksheet('Donor Logframe')?.getRow(1).values,
+    ).toEqual([
+      undefined,
+      'Results Level',
+      'Result Statement',
+      'Final Outcome',
+      'Indicator',
+      'Pathway / Context',
+      'Key Activities',
+      'Planned Outputs',
+    ])
     expect(
       projectExportBaseName(exportModel),
     ).toBe('UG_2027_Export')

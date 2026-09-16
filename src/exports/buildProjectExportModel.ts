@@ -1,7 +1,10 @@
 import { inputCategories } from '../data/inputCategories'
 import { getFrameworkByVersion } from '../data/frameworkRegistry'
 import { loadPersistedProject } from '../persistence/projectSerialization'
-import type { ProjectRecord } from '../persistence/types'
+import type {
+  PersistedProjectDesignV1,
+  ProjectRecord,
+} from '../persistence/types'
 import {
   displayedOutputText,
   getSelectedOutputUnit,
@@ -51,10 +54,17 @@ function relationshipLabel(
   return relationshipType === 'primary' ? 'Primary' : 'Related'
 }
 
-function inputCategoryLabel(inputCategoryId: string): string {
+function inputCategoryLabel(
+  inputCategoryId: string,
+  framework?: FrameworkData,
+): string {
   return (
     inputCategories.find((category) => category.id === inputCategoryId)
-      ?.label ?? 'Unknown category'
+      ?.label ??
+    framework?.inputCategories.find(
+      (category) => category.id === inputCategoryId,
+    )?.label ??
+    'Unknown category'
   )
 }
 
@@ -150,7 +160,6 @@ interface StandardPathwayContext {
   pathwayId: string
   pathwayName: string
   finalOutcomeStatements: string[]
-  relationshipContexts: string[]
   intermediateOutcomes: Array<{
     outcome: IntermediateOutcome
     configuration: ProjectDesignState['projectPathways'][number]['intermediateOutcomeConfigurations'][number]
@@ -176,13 +185,6 @@ function buildStandardPathwayContexts(
     const finalOutcomeStatements = links.map((link) =>
       finalOutcomeStatement(framework, link.finalOutcomeId),
     )
-    const relationshipContexts = links.map(
-      (link) =>
-        `${relationshipLabel(link.relationshipType)}: ${finalOutcomeStatement(
-          framework,
-          link.finalOutcomeId,
-        )}`,
-    )
     const intermediateOutcomes =
       projectPathway.intermediateOutcomeConfigurations
         .map((configuration) => {
@@ -207,7 +209,6 @@ function buildStandardPathwayContexts(
       pathwayId: pathway.id,
       pathwayName: pathway.name,
       finalOutcomeStatements,
-      relationshipContexts,
       intermediateOutcomes,
     }
   })
@@ -392,35 +393,77 @@ function addStandardIndicatorRows(
   })
 }
 
-function addStandardInputRows(
-  rows: InputExportRow[],
+function buildSavedInputRows(
+  document: PersistedProjectDesignV1,
   pathways: StandardPathwayContext[],
-) {
-  pathways.forEach((pathway) => {
+  framework: FrameworkData,
+): InputExportRow[] {
+  const rows: InputExportRow[] = []
+  document.design.projectPathways.forEach((persistedPathway) => {
+    const pathway = pathways.find(
+      (candidate) =>
+        candidate.pathwayId === persistedPathway.pathwayId,
+    )
+    if (!pathway) {
+      throw new ProjectExportError(
+        `Pathway ${persistedPathway.pathwayId} is unavailable for input export.`,
+      )
+    }
     const finalOutcomes = joinUnique(
       pathway.finalOutcomeStatements,
       '; ',
     )
-    pathway.intermediateOutcomes.forEach(
-      ({ outcome, configuration }) => {
+    persistedPathway.intermediateOutcomeConfigurations.forEach(
+      (configuration) => {
+        const outcome = framework.intermediateOutcomes.find(
+          (candidate) =>
+            candidate.id ===
+              configuration.frameworkIntermediateOutcomeId &&
+            candidate.pathwayId === persistedPathway.pathwayId,
+        )
+        if (!outcome) {
+          throw new ProjectExportError(
+            `Intermediate Outcome ${configuration.frameworkIntermediateOutcomeId} is unavailable for input export.`,
+          )
+        }
         configuration.inputs.forEach((input) => {
           rows.push({
             finalOutcome: finalOutcomes,
             pathway: pathway.pathwayName,
             intermediateOutcome: outcome.statement,
-            inputCategory: inputCategoryLabel(input.inputCategoryId),
+            inputCategory: inputCategoryLabel(
+              input.inputCategoryId,
+              framework,
+            ),
             input: input.details,
           })
         })
       },
     )
   })
+
+  const custom = document.design.customInnovation
+  custom?.pathway.intermediateOutcomes.forEach((outcome) => {
+    outcome.inputs.forEach((input) => {
+      rows.push({
+        finalOutcome: custom.statement,
+        pathway: custom.pathway.name,
+        intermediateOutcome: outcome.statement,
+        inputCategory: inputCategoryLabel(
+          input.inputCategoryId,
+          framework,
+        ),
+        input: input.details,
+      })
+    })
+  })
+  return rows
 }
 
 function addCustomInnovationRows(
   model: Pick<
     ProjectExportModel,
-    'resultsFramework' | 'activitiesOutputs' | 'indicators' | 'inputs'
+    'resultsFramework' | 'activitiesOutputs' | 'indicators'
   >,
   state: ProjectDesignState,
   framework: FrameworkData,
@@ -496,15 +539,6 @@ function addCustomInnovationRows(
           plannedOutput: displayedOutputText(planning, null) ?? '',
         })
       })
-      outcome.inputs.forEach((input) => {
-        model.inputs.push({
-          finalOutcome,
-          pathway,
-          intermediateOutcome: outcome.statement,
-          inputCategory: inputCategoryLabel(input.inputCategoryId),
-          input: input.details,
-        })
-      })
     })
 }
 
@@ -534,6 +568,7 @@ function standardDonorRows(
     rows.push({
       resultsLevel: 'Impact',
       resultStatement: impact.statement,
+      finalOutcome: '',
       indicator: '',
       pathwayContext: joinUnique(linkedOutcomes, '; '),
       keyActivities: '',
@@ -568,6 +603,7 @@ function standardDonorRows(
     rows.push({
       resultsLevel: 'Final Outcome',
       resultStatement: outcome.statement,
+      finalOutcome: outcome.statement,
       indicator: joinUnique(
         outcome.primaryIndicatorIds.map((id) =>
           indicatorText(framework, id),
@@ -580,6 +616,9 @@ function standardDonorRows(
   })
 
   pathways.forEach((pathway) => {
+    const relationships = state.outcomePathwayLinks.filter(
+      (link) => link.pathwayId === pathway.pathwayId,
+    )
     pathway.intermediateOutcomes.forEach(
       ({ outcome, configuration }) => {
         const activityLabels = [
@@ -614,31 +653,37 @@ function standardDonorRows(
             ),
           ),
         ]
-        rows.push({
-          resultsLevel: 'Intermediate Outcome',
-          resultStatement: outcome.statement,
-          indicator: joinUnique([
-            configuration.primaryIndicator
-              ? indicatorText(
+        relationships.forEach((relationship) => {
+          rows.push({
+            resultsLevel: 'Intermediate Outcome',
+            resultStatement: outcome.statement,
+            finalOutcome: finalOutcomeStatement(
+              framework,
+              relationship.finalOutcomeId,
+            ),
+            indicator: joinUnique([
+              configuration.primaryIndicator
+                ? indicatorText(
+                    framework,
+                    configuration.primaryIndicator.frameworkIndicatorId,
+                  )
+                : null,
+              ...configuration.additionalIndicators.map((selection) =>
+                indicatorText(
                   framework,
-                  configuration.primaryIndicator.frameworkIndicatorId,
-                )
-              : null,
-            ...configuration.additionalIndicators.map((selection) =>
-              indicatorText(
-                framework,
-                selection.frameworkIndicatorId,
+                  selection.frameworkIndicatorId,
+                ),
               ),
-            ),
-            ...configuration.projectSpecificIndicators.map(
-              (indicator) => indicator.wording,
-            ),
-          ]),
-          pathwayContext: `${pathway.pathwayName}\n${joinUnique(
-            pathway.relationshipContexts,
-          )}`,
-          keyActivities: joinUnique(activityLabels),
-          plannedOutputs: joinUnique(plannedOutputs),
+              ...configuration.projectSpecificIndicators.map(
+                (indicator) => indicator.wording,
+              ),
+            ]),
+            pathwayContext: `${pathway.pathwayName} (${relationshipLabel(
+              relationship.relationshipType,
+            )})`,
+            keyActivities: joinUnique(activityLabels),
+            plannedOutputs: joinUnique(plannedOutputs),
+          })
         })
       },
     )
@@ -655,6 +700,7 @@ function addCustomDonorRows(
   rows.push({
     resultsLevel: 'Final Outcome',
     resultStatement: custom.statement,
+    finalOutcome: custom.statement,
     indicator: custom.primaryIndicator.wording,
     pathwayContext: `${custom.pathway.name} (Primary)\nCustom innovation`,
     keyActivities: '',
@@ -666,6 +712,7 @@ function addCustomDonorRows(
       rows.push({
         resultsLevel: 'Intermediate Outcome',
         resultStatement: outcome.statement,
+        finalOutcome: custom.statement,
         indicator: joinUnique([
           outcome.primaryIndicator.wording,
           ...outcome.additionalIndicators.map(
@@ -706,7 +753,7 @@ export function buildProjectExportModel(
   const resultsFramework: ResultsFrameworkExportRow[] = []
   const activitiesOutputs: ActivityOutputExportRow[] = []
   const indicators: IndicatorExportRow[] = []
-  const inputs: InputExportRow[] = []
+  const inputs = buildSavedInputRows(record.project, pathways, framework)
 
   addStandardResultsRows(
     resultsFramework,
@@ -726,9 +773,8 @@ export function buildProjectExportModel(
     framework,
     pathways,
   )
-  addStandardInputRows(inputs, pathways)
   addCustomInnovationRows(
-    { resultsFramework, activitiesOutputs, indicators, inputs },
+    { resultsFramework, activitiesOutputs, indicators },
     state,
     framework,
   )

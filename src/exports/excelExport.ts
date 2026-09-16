@@ -240,15 +240,17 @@ export function buildProjectDesignWorkbook(
     [
       'Results Level',
       'Result Statement',
+      'Final Outcome',
       'Indicator',
       'Pathway / Context',
       'Key Activities',
       'Planned Outputs',
     ],
-    [22, 55, 55, 42, 52, 58],
+    [22, 55, 55, 55, 42, 52, 58],
     model.donorLogframe.map((row) => [
       row.resultsLevel,
       row.resultStatement,
+      row.finalOutcome,
       row.indicator,
       row.pathwayContext,
       row.keyActivities,

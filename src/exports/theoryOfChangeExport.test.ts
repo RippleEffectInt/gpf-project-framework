@@ -157,12 +157,11 @@ describe('complete Theory of Change export document', () => {
 
   it('plans landscape PDF pages that cover normal models without clipping', () => {
     const document = buildTheoryOfChangeSvg(graph, 'Market Project')
-    const plan = planTheoryOfChangePdf(
-      document.width,
-      document.height,
-    )
+    const plan = planTheoryOfChangePdf(document)
     const finalPage = plan.pages.at(-1)
 
+    expect(plan.orientation).toBe('landscape')
+    expect(plan.format).toBe('a3')
     expect(plan.pageWidth).toBeGreaterThan(plan.pageHeight)
     expect(plan.pages).toHaveLength(1)
     expect(finalPage).toBeDefined()
@@ -174,15 +173,44 @@ describe('complete Theory of Change export document', () => {
     )
   })
 
-  it('tiles large models across landscape pages without losing content', () => {
-    const plan = planTheoryOfChangePdf(1320, 2600)
-    const coveredHeight = plan.pages.reduce(
-      (height, page) => height + page.sourceHeight,
-      0,
-    )
+  it('uses a larger landscape page before tiling a legible model', () => {
+    const document = buildTheoryOfChangeSvg(graph, 'Market Project')
+    const plan = planTheoryOfChangePdf({
+      ...document,
+      height: 1400,
+    })
 
+    expect(plan.orientation).toBe('landscape')
+    expect(plan.format).toBe('a2')
+    expect(plan.pages).toHaveLength(1)
+  })
+
+  it('tiles only genuinely large models at safe lane or node boundaries', () => {
+    const document = buildTheoryOfChangeSvg(graph, 'Market Project')
+    const laneBounds = Array.from({ length: 8 }, (_, index) => ({
+      top: 140 + index * 600,
+      bottom: 700 + index * 600,
+    }))
+    const nodeBounds = laneBounds.flatMap((lane) => [
+      { top: lane.top + 20, bottom: lane.top + 120 },
+      { top: lane.top + 150, bottom: lane.top + 250 },
+      { top: lane.top + 280, bottom: lane.top + 380 },
+    ])
+    const plan = planTheoryOfChangePdf({
+      ...document,
+      height: 5000,
+      laneBounds,
+      nodeBounds,
+    })
+    const finalPage = plan.pages.at(-1)
+
+    expect(plan.orientation).toBe('landscape')
+    expect(plan.format).toBe('a3')
     expect(plan.pages.length).toBeGreaterThan(1)
-    expect(coveredHeight).toBeCloseTo(2600, 5)
+    expect(
+      (finalPage?.sourceY ?? 0) + (finalPage?.sourceHeight ?? 0),
+    ).toBeCloseTo(5000, 5)
+    expect(plan.overlap).toBeGreaterThan(0)
     expect(
       plan.pages.every(
         (page) =>
@@ -190,5 +218,15 @@ describe('complete Theory of Change export document', () => {
           plan.pageHeight - plan.margin * 2,
       ),
     ).toBe(true)
+    plan.pages.slice(0, -1).forEach((page) => {
+      const boundary = page.sourceY + page.sourceHeight
+      expect(
+        nodeBounds.some(
+          (node) =>
+            boundary > node.top - 2 &&
+            boundary < node.bottom + 2,
+        ),
+      ).toBe(false)
+    })
   })
 })

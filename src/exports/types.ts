@@ -72,6 +72,7 @@ export interface InputExportRow {
 export interface DonorLogframeExportRow {
   resultsLevel: 'Impact' | 'Final Outcome' | 'Intermediate Outcome'
   resultStatement: string
+  finalOutcome: string
   indicator: string
   pathwayContext: string
   keyActivities: string
