@@ -64,9 +64,121 @@ function renderApp(repository: ProjectRepository, initialEntry = '/projects') {
   )
 }
 
+function fillRequiredProjectDetails(title: string) {
+  fireEvent.change(screen.getByLabelText('Project title *'), {
+    target: { value: title },
+  })
+  fireEvent.change(screen.getByLabelText('Country *'), {
+    target: { value: 'Uganda' },
+  })
+  fireEvent.change(screen.getByLabelText('Donor *'), {
+    target: { value: 'Example donor' },
+  })
+  fireEvent.change(
+    screen.getByLabelText('Funding opportunity / reference *'),
+    { target: { value: 'REF-001' } },
+  )
+  fireEvent.change(screen.getByLabelText('Project Manager *'), {
+    target: { value: 'Project manager' },
+  })
+  fireEvent.change(
+    screen.getByLabelText('Potential implementation start month'),
+    { target: { value: '03' } },
+  )
+  fireEvent.change(
+    screen.getByLabelText('Potential implementation start year'),
+    { target: { value: '2027' } },
+  )
+  fireEvent.change(
+    screen.getByLabelText('Potential implementation end month'),
+    { target: { value: '11' } },
+  )
+  fireEvent.change(
+    screen.getByLabelText('Potential implementation end year'),
+    { target: { value: '2027' } },
+  )
+  fireEvent.change(screen.getByLabelText('Short project description *'), {
+    target: { value: 'A complete project description.' },
+  })
+}
+
 beforeEach(() => window.localStorage.clear())
 
 describe('project persistence workflow', () => {
+  it('saves valid Project Details before continuing', async () => {
+    let resolveSave: (saved: ProjectRecord) => void = () => undefined
+    let submitted: PersistedProjectDesignV1 | null = null
+    const repository: ProjectRepository = {
+      createProject: (project) => {
+        submitted = project
+        return new Promise<ProjectRecord>((resolve) => {
+          resolveSave = resolve
+        })
+      },
+      updateProject: async (project) => record(project),
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
+    renderApp(repository, '/design/details')
+    fillRequiredProjectDetails('Save and continue project')
+
+    expect(
+      screen.queryByRole('button', { name: 'Save Draft' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Continue' }),
+    ).not.toBeInTheDocument()
+    const saveAndContinue = screen.getByRole('button', {
+      name: 'Save & continue',
+    })
+    fireEvent.click(saveAndContinue)
+
+    expect(saveAndContinue).toBeDisabled()
+    expect(saveAndContinue).toHaveTextContent('Saving…')
+    expect(
+      screen.getByRole('heading', { name: 'Tell us about the project' }),
+    ).toBeInTheDocument()
+    const savedProject = submitted as PersistedProjectDesignV1 | null
+    expect(savedProject?.project.name).toBe('Save and continue project')
+    if (!savedProject) throw new Error('Expected a submitted project.')
+    resolveSave(record(savedProject))
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'What change is this project trying to achieve?',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps Project Details and edits in place when Save & continue fails', async () => {
+    const repository: ProjectRepository = {
+      createProject: async () => {
+        throw new ProjectPersistenceError('network')
+      },
+      updateProject: async () => {
+        throw new ProjectPersistenceError('network')
+      },
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
+    renderApp(repository, '/design/details')
+    fillRequiredProjectDetails('Unsaved complete project')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save & continue' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The project could not be reached. Check your connection and try again.',
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Tell us about the project' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Project title *')).toHaveValue(
+      'Unsaved complete project',
+    )
+  })
+
   it('shows project list loading while the repository request is pending', async () => {
     let resolveProjects: (projects: ProjectSummary[]) => void = () => undefined
     const repository: ProjectRepository = {
@@ -99,7 +211,7 @@ describe('project persistence workflow', () => {
     fireEvent.change(screen.getByLabelText('Project title *'), {
       target: { value: 'New saved project' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
     await waitFor(async () => {
       await expect(repository.listProjects()).resolves.toEqual([
@@ -121,7 +233,7 @@ describe('project persistence workflow', () => {
     const title = await screen.findByLabelText('Project title *')
     expect(title).toHaveValue('Existing project')
     fireEvent.change(title, { target: { value: 'Updated project' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
     await waitFor(async () => {
       const record = await repository.getProject('PROJECT_1')
@@ -145,7 +257,7 @@ describe('project persistence workflow', () => {
 
     const title = screen.getByLabelText('Project title *')
     fireEvent.change(title, { target: { value: 'Unsaved local project' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The project could not be reached. Check your connection and try again.',
@@ -177,7 +289,7 @@ describe('project persistence workflow', () => {
     fireEvent.change(title, {
       target: { value: 'Authoritative saved project' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
     expect(
       await screen.findByText(
@@ -219,7 +331,7 @@ describe('project persistence workflow', () => {
       created.etag,
     )
     fireEvent.change(title, { target: { value: 'My unsaved local changes' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save project' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This project was changed elsewhere after you opened it. Your unsaved work has not been overwritten.',

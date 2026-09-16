@@ -3,6 +3,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import frameworkJson from '../data/framework-v1.0-normalized.json'
+import { ProjectPersistenceError } from '../persistence/errors'
+import type {
+  PersistedProjectDesignV1,
+  ProjectRecord,
+  ProjectRepository,
+} from '../persistence/types'
 import {
   getPathwayIntermediateOutcomeSeeds,
   getPrimaryFinalOutcomeForPathway,
@@ -125,11 +131,15 @@ function confirm(state: ProjectDesignState): ProjectDesignState {
 function renderJourney(
   initialEntry: string,
   initialState = initialProjectDesignState,
+  repository?: ProjectRepository,
 ) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <FrameworkProvider initialData={framework}>
-        <ProjectDesignProvider initialState={initialState}>
+        <ProjectDesignProvider
+          initialState={initialState}
+          repository={repository}
+        >
           <Routes>
             <Route
               path="/design/outcomes/:outcomeId"
@@ -158,11 +168,15 @@ function renderJourney(
 function renderApplication(
   initialEntry: string,
   initialState = initialProjectDesignState,
+  repository?: ProjectRepository,
 ) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <FrameworkProvider initialData={framework}>
-        <ProjectDesignProvider initialState={initialState}>
+        <ProjectDesignProvider
+          initialState={initialState}
+          repository={repository}
+        >
           <App />
         </ProjectDesignProvider>
       </FrameworkProvider>
@@ -201,8 +215,8 @@ describe('linear project-design journey', () => {
       screen.getAllByText('Primary pathway required').length,
     ).toBeGreaterThan(0)
     expect(
-      screen.queryByRole('link', {
-        name: 'Continue to configure pathways',
+      screen.queryByRole('button', {
+        name: 'Save & continue to configure pathways',
       }),
     ).not.toBeInTheDocument()
   })
@@ -238,7 +252,7 @@ describe('linear project-design journey', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Continue to configure pathways',
+        name: 'Save & continue to configure pathways',
       }),
     ).toBeDisabled()
     expect(
@@ -257,27 +271,53 @@ describe('linear project-design journey', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Continue to configure pathways',
+        name: 'Save & continue to configure pathways',
       }),
     ).toBeDisabled()
   })
 
-  it('enables the basket handoff after Primary requirements are met', () => {
+  it('saves before the basket handoff after Primary requirements are met', async () => {
     const validState = addPathway(
-      initialProjectDesignState,
+      {
+        ...initialProjectDesignState,
+        metadata: {
+          ...initialProjectDesignState.metadata,
+          title: 'Basket handoff project',
+        },
+      },
       outcome.id,
       primaryPathway,
       'primary',
     )
-    renderApplication(`/design/outcomes/${outcome.id}`, validState)
+    const repository: ProjectRepository = {
+      createProject: async (project) => ({
+        project,
+        etag: '"created"',
+        createdAt: '2026-09-16T12:00:00.000Z',
+        modifiedAt: '2026-09-16T12:00:00.000Z',
+      }),
+      updateProject: async (project) => ({
+        project,
+        etag: '"updated"',
+        createdAt: '2026-09-16T12:00:00.000Z',
+        modifiedAt: '2026-09-16T12:00:00.000Z',
+      }),
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
+    renderApplication(
+      `/design/outcomes/${outcome.id}`,
+      validState,
+      repository,
+    )
 
-    const continueLink = screen.getByRole('link', {
-      name: 'Continue to configure pathways',
+    const continueButton = screen.getByRole('button', {
+      name: 'Save & continue to configure pathways',
     })
-    fireEvent.click(continueLink)
+    fireEvent.click(continueButton)
 
     expect(
-      screen.getByRole('heading', { name: 'Configure pathways' }),
+      await screen.findByRole('heading', { name: 'Configure pathways' }),
     ).toBeInTheDocument()
   })
 
@@ -561,28 +601,278 @@ describe('linear project-design journey', () => {
     ).toHaveValue('Autosaved custom activity details')
   })
 
-  it('Done returns to the overview and permits review with optional sections empty', () => {
+  it('shows planned output immediately after adding a custom activity', () => {
+    const configuredState = addPathway(
+      initialProjectDesignState,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    const intermediateOutcome = primaryPathway.intermediateOutcomes[0]
+    if (!intermediateOutcome) {
+      throw new Error('Expected an Intermediate Outcome.')
+    }
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      configuredState,
+    )
+    const heading = screen.getByRole('heading', {
+      name: intermediateOutcome.statement,
+    })
+    const summary = heading.closest('summary')
+    if (!summary?.parentElement) {
+      throw new Error('Expected Intermediate Outcome configuration.')
+    }
+    fireEvent.click(summary)
+    const step = within(summary.parentElement)
+    fireEvent.change(step.getByLabelText('Activity wording *'), {
+      target: { value: 'Facilitate local planning sessions' },
+    })
+    fireEvent.change(step.getByLabelText('Project-specific details'), {
+      target: { value: 'Include local leaders' },
+    })
+    fireEvent.click(
+      step.getByRole('button', { name: 'Add another activity' }),
+    )
+
+    const activityItem = step
+      .getByText('Facilitate local planning sessions')
+      .closest('li')
+    if (!activityItem) throw new Error('Expected the new activity card.')
+    const activityCard = within(activityItem)
+    expect(activityCard.getByText('Include local leaders')).toBeInTheDocument()
+    expect(activityCard.getByText('Planned output')).toBeInTheDocument()
+    expect(activityCard.getByLabelText('Planned quantity')).toBeInTheDocument()
+    expect(activityCard.getByLabelText('Output unit')).toBeInTheDocument()
+    expect(activityCard.getByLabelText('Output wording')).toBeInTheDocument()
+    expect(
+      step.getByRole('button', { name: 'Done editing' }),
+    ).toBeInTheDocument()
+    expect(
+      step.getAllByText('Facilitate local planning sessions'),
+    ).toHaveLength(1)
+  })
+
+  it('shows the bulk Self Help Group action only when a total and activity exist', () => {
+    const intermediateOutcome = primaryPathway.intermediateOutcomes.find(
+      (candidate) =>
+        getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
+          .length > 1,
+    )
+    if (!intermediateOutcome) {
+      throw new Error('Expected an Intermediate Outcome with activities.')
+    }
+    const suggestedActivities = getSuggestedActivitiesForIntermediateOutcome(
+      framework,
+      intermediateOutcome.id,
+    )
+    const activity = suggestedActivities[0]
+    if (!activity) throw new Error('Expected a suggested activity.')
+    let state = addPathway(
+      initialProjectDesignState,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    state = projectDesignReducer(state, {
+      type: 'setStandardActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId: intermediateOutcome.id,
+      frameworkActivityId: activity.id,
+      selected: true,
+    })
+    const view = renderJourney('/design/configure', state)
+    expect(
+      screen.queryByRole('button', {
+        name: /Set all activity outputs to .* Self Help Groups/,
+      }),
+    ).not.toBeInTheDocument()
+    view.unmount()
+
+    const withTotal = projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    renderJourney('/design/configure', withTotal)
+    expect(
+      screen.getByRole('button', {
+        name: 'Set all activity outputs to 50 Self Help Groups',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('confirms before bulk overwrite and keeps manually edited wording', () => {
+    const intermediateOutcome = primaryPathway.intermediateOutcomes.find(
+      (candidate) =>
+        getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
+          .length > 1,
+    )
+    if (!intermediateOutcome) {
+      throw new Error('Expected an Intermediate Outcome with activities.')
+    }
+    const suggestedActivities = getSuggestedActivitiesForIntermediateOutcome(
+      framework,
+      intermediateOutcome.id,
+    )
+    const activity = suggestedActivities[0]
+    const unselectedActivity = suggestedActivities[1]
+    if (!activity || !unselectedActivity) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    let state = addPathway(
+      initialProjectDesignState,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    state = projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = projectDesignReducer(state, {
+      type: 'setStandardActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId: intermediateOutcome.id,
+      frameworkActivityId: activity.id,
+      selected: true,
+      output: {
+        plannedQuantity: 10,
+        outputUnitSelection: 'people',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: 'Preserved custom output wording',
+      },
+    })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderJourney('/design/configure', state)
+    const bulkButton = screen.getByRole('button', {
+      name: 'Set all activity outputs to 50 Self Help Groups',
+    })
+    fireEvent.click(bulkButton)
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Some activity outputs have already been configured. Applying this will replace their quantity and unit with the project Self Help Group total. Custom output wording will be kept. Continue?',
+    )
+    expect(
+      screen.queryByText(
+        'Activity outputs set to 50 Self Help Groups. Review individual activities and change any exceptions.',
+      ),
+    ).not.toBeInTheDocument()
+
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(bulkButton)
+    expect(
+      screen.getByText(
+        'Activity outputs set to 50 Self Help Groups. Review individual activities and change any exceptions.',
+      ),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('link', { name: 'Configure pathway' }),
+    )
+    const heading = screen.getByRole('heading', {
+      name: intermediateOutcome.statement,
+    })
+    const summary = heading.closest('summary')
+    if (!summary?.parentElement) {
+      throw new Error('Expected Intermediate Outcome configuration.')
+    }
+    fireEvent.click(summary)
+    const activityOption = screen.getByText(activity.text).closest(
+      '.activity-option',
+    )
+    if (!(activityOption instanceof HTMLElement)) {
+      throw new Error('Expected selected activity configuration.')
+    }
+    const output = within(activityOption)
+    expect(output.getByLabelText('Output unit')).toHaveValue(
+      'self-help-groups',
+    )
+    expect(
+      output.getByRole('checkbox', {
+        name: 'Use all 50 Self Help Groups',
+      }),
+    ).toBeChecked()
+    expect(
+      output.getByText(
+        'Planned output: Preserved custom output wording',
+      ),
+    ).toBeInTheDocument()
+    const unselectedOption = screen
+      .getByText(unselectedActivity.text)
+      .closest('.activity-option')
+    if (!(unselectedOption instanceof HTMLElement)) {
+      throw new Error('Expected unselected activity option.')
+    }
+    expect(
+      within(unselectedOption).getByRole('checkbox'),
+    ).not.toBeChecked()
+    confirmSpy.mockRestore()
+  })
+
+  it('saves before returning to the overview with optional sections empty', async () => {
     const configuredState = addRequiredActivities(
       addPathway(
-        initialProjectDesignState,
+        {
+          ...initialProjectDesignState,
+          metadata: {
+            ...initialProjectDesignState.metadata,
+            title: 'Configured pathway project',
+          },
+        },
         outcome.id,
         primaryPathway,
         'primary',
       ),
     )
+    let submitted: PersistedProjectDesignV1 | null = null
+    let resolveSave: (record: ProjectRecord) => void = () => undefined
+    const repository: ProjectRepository = {
+      createProject: (project) => {
+        submitted = project
+        return new Promise<ProjectRecord>((resolve) => {
+          resolveSave = resolve
+        })
+      },
+      updateProject: async (project) => ({
+        project,
+        etag: '"updated"',
+        createdAt: '2026-09-16T12:00:00.000Z',
+        modifiedAt: '2026-09-16T12:00:00.000Z',
+      }),
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
     renderJourney(
       `/design/pathways/${primaryPathway.pathway.id}/configure`,
       configuredState,
+      repository,
     )
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Done configuring this pathway',
-      }),
-    )
+    const saveAndReturn = screen.getByRole('button', {
+      name: 'Save & return to pathways',
+    })
+    fireEvent.click(saveAndReturn)
+
+    expect(saveAndReturn).toBeDisabled()
+    expect(saveAndReturn).toHaveTextContent('Saving…')
+    expect(
+      screen.queryByRole('heading', { name: 'Configure pathways' }),
+    ).not.toBeInTheDocument()
+    const savedProject = submitted as PersistedProjectDesignV1 | null
+    expect(
+      savedProject?.design.projectPathways[0]?.intermediateOutcomeConfigurations.every(
+        (configuration) => configuration.reviewed,
+      ),
+    ).toBe(true)
+    if (!savedProject) throw new Error('Expected pathway save payload.')
+    resolveSave({
+      project: savedProject,
+      etag: '"created"',
+      createdAt: '2026-09-16T12:00:00.000Z',
+      modifiedAt: '2026-09-16T12:00:00.000Z',
+    })
 
     expect(
-      screen.getByRole('heading', { name: 'Configure pathways' }),
+      await screen.findByRole('heading', { name: 'Configure pathways' }),
     ).toBeInTheDocument()
     expect(screen.getByText('✓ All pathways configured')).toBeInTheDocument()
     expect(screen.getByText('✓ Configured')).toBeInTheDocument()
@@ -593,7 +883,115 @@ describe('linear project-design journey', () => {
       screen.queryByRole('link', { name: 'Configure pathway' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: 'Continue to review project' }),
+      screen.getByRole('button', { name: 'Save & continue to review' }),
+    ).toBeInTheDocument()
+  })
+
+  it('stays on pathway configuration when progression save fails', async () => {
+    const configuredState = addRequiredActivities(
+      addPathway(
+        {
+          ...initialProjectDesignState,
+          metadata: {
+            ...initialProjectDesignState.metadata,
+            title: 'Failed pathway save project',
+          },
+        },
+        outcome.id,
+        primaryPathway,
+        'primary',
+      ),
+    )
+    const repository: ProjectRepository = {
+      createProject: async () => {
+        throw new ProjectPersistenceError('network')
+      },
+      updateProject: async () => {
+        throw new ProjectPersistenceError('network')
+      },
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
+    renderApplication(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      configuredState,
+      repository,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Save & return to pathways',
+      }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The project could not be reached. Check your connection and try again.',
+    )
+    expect(
+      screen.getByRole('heading', { name: primaryPathway.pathway.name }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Configure pathways' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('saves before continuing from Configure Project to review', async () => {
+    const state = confirm(
+      addPathway(
+        {
+          ...initialProjectDesignState,
+          metadata: {
+            ...initialProjectDesignState.metadata,
+            title: 'Review handoff project',
+          },
+        },
+        outcome.id,
+        primaryPathway,
+        'primary',
+      ),
+    )
+    let resolveSave: (record: ProjectRecord) => void = () => undefined
+    let submitted: PersistedProjectDesignV1 | null = null
+    const repository: ProjectRepository = {
+      createProject: (project) => {
+        submitted = project
+        return new Promise<ProjectRecord>((resolve) => {
+          resolveSave = resolve
+        })
+      },
+      updateProject: async (project) => ({
+        project,
+        etag: '"updated"',
+        createdAt: '2026-09-16T12:00:00.000Z',
+        modifiedAt: '2026-09-16T12:00:00.000Z',
+      }),
+      getProject: async () => null,
+      listProjects: async () => [],
+    }
+    renderJourney('/design/configure', state, repository)
+    const continueButton = screen.getByRole('button', {
+      name: 'Save & continue to review',
+    })
+
+    fireEvent.click(continueButton)
+
+    expect(continueButton).toBeDisabled()
+    expect(continueButton).toHaveTextContent('Saving…')
+    expect(
+      screen.queryByRole('heading', { name: 'Review Project Design' }),
+    ).not.toBeInTheDocument()
+    const savedProject = submitted as PersistedProjectDesignV1 | null
+    if (!savedProject) throw new Error('Expected review handoff save payload.')
+    resolveSave({
+      project: savedProject,
+      etag: '"created"',
+      createdAt: '2026-09-16T12:00:00.000Z',
+      modifiedAt: '2026-09-16T12:00:00.000Z',
+    })
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Review Project Design',
+      }),
     ).toBeInTheDocument()
   })
 })
@@ -726,14 +1124,16 @@ describe('custom innovation and project review', () => {
     })
     renderJourney('/design/configure', state)
     expect(
-      screen.queryByRole('link', { name: 'Continue to review project' }),
+      screen.queryByRole('button', {
+        name: 'Save & continue to review',
+      }),
     ).not.toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: 'Complete custom outcome' }),
     ).toBeInTheDocument()
   })
 
-  it('enables Continue to review when standard pathways are confirmed and custom content is complete', () => {
+  it('enables Save & continue to review when configuration is complete', () => {
     let state = addPathway(
       initialProjectDesignState,
       outcome.id,
@@ -743,7 +1143,9 @@ describe('custom innovation and project review', () => {
     state = confirm(completeCustomState(state))
     renderJourney('/design/configure', state)
     expect(
-      screen.getByRole('link', { name: 'Continue to review project' }),
+      screen.getByRole('button', {
+        name: 'Save & continue to review',
+      }),
     ).toBeInTheDocument()
   })
 
@@ -915,7 +1317,9 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
       screen.getByLabelText('Potential implementation end year'),
       { target: { value: '2027' } },
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save & continue' }),
+    )
     expect(
       screen.getByText(
         'Potential End must not be earlier than Potential Start.',
@@ -1278,12 +1682,12 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
     })
     renderApplication('/design/custom-innovation', completeCustom)
     expect(
-      screen.getByRole('link', {
+      screen.getByRole('button', {
         name: 'Save custom outcome and continue choosing outcomes',
       }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', {
+      screen.getByRole('button', {
         name: 'Save custom outcome and continue to configure pathways',
       }),
     ).toBeInTheDocument()
@@ -1689,7 +2093,7 @@ describe('mandatory activities, configure return and review relationships', () =
       ).length,
     ).toBeGreaterThan(0)
     fireEvent.click(
-      screen.getByRole('button', { name: 'Done configuring this pathway' }),
+      screen.getByRole('button', { name: 'Save & return to pathways' }),
     )
     expect(
       screen.getByRole('heading', { name: primaryPathway.pathway.name }),
@@ -2156,11 +2560,13 @@ describe('persistent project title and bulk activity selection', () => {
     return { heading, card }
   }
 
-  it('keeps the project title visible after continuing from project details', () => {
+  it('keeps the project title visible after saving and continuing from project details', async () => {
     renderApplication('/design/details', titledState())
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save & continue' }),
+    )
     expect(
-      screen.getByRole('heading', {
+      await screen.findByRole('heading', {
         name: 'What change is this project trying to achieve?',
       }),
     ).toBeInTheDocument()

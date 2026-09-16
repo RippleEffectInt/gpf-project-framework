@@ -46,6 +46,7 @@ export const initialProjectDesignState: ProjectDesignState = {
 
 export type ProjectDesignAction =
   | { type: 'updateMetadata'; payload: Partial<ProjectMetadata> }
+  | { type: 'setAllActivityOutputsToProjectSelfHelpGroups' }
   | { type: 'selectFinalOutcome'; finalOutcomeId: string }
   | {
       type: 'addPathway'
@@ -406,6 +407,40 @@ export function hasRequiredPrimaryPathways(state: ProjectDesignState): boolean {
   )
 }
 
+function selectedActivities(state: ProjectDesignState) {
+  return [
+    ...state.projectPathways.flatMap((pathway) =>
+      pathway.intermediateOutcomeConfigurations.flatMap(
+        (configuration) => [
+          ...configuration.standardActivities,
+          ...configuration.projectSpecificActivities,
+        ],
+      ),
+    ),
+    ...(state.customInnovation?.pathway.intermediateOutcomes.flatMap(
+      (outcome) => outcome.activities,
+    ) ?? []),
+  ]
+}
+
+export function getSelectedActivityCount(
+  state: ProjectDesignState,
+): number {
+  return selectedActivities(state).length
+}
+
+export function hasConfiguredActivityQuantityOrUnit(
+  state: ProjectDesignState,
+): boolean {
+  return selectedActivities(state).some(
+    (activity) =>
+      activity.plannedQuantity != null ||
+      activity.outputUnitSelection != null ||
+      Boolean(activity.customOutputUnit?.trim()) ||
+      activity.useProjectSelfHelpGroupTotal === true,
+  )
+}
+
 export function projectDesignReducer(
   state: ProjectDesignState,
   action: ProjectDesignAction,
@@ -450,6 +485,57 @@ export function projectDesignReducer(
                         outcome.activities,
                         metadata.plannedSelfHelpGroupCount,
                       ),
+                    }),
+                  ),
+              },
+            }
+          : null,
+      }
+    }
+
+    case 'setAllActivityOutputsToProjectSelfHelpGroups': {
+      const total = state.metadata.plannedSelfHelpGroupCount
+      if (!Number.isInteger(total) || total === null || total < 1) {
+        return state
+      }
+      const applyTotal = <
+        T extends
+          | ProjectSpecificActivity
+          | { frameworkActivityId: string; projectNotes: string },
+      >(
+        activity: T,
+      ): T => ({
+        ...activity,
+        plannedQuantity: total,
+        outputUnitSelection: 'self-help-groups',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: true,
+      })
+      return {
+        ...state,
+        projectPathways: state.projectPathways.map((pathway) => ({
+          ...pathway,
+          intermediateOutcomeConfigurations:
+            pathway.intermediateOutcomeConfigurations.map(
+              (configuration) => ({
+                ...configuration,
+                standardActivities:
+                  configuration.standardActivities.map(applyTotal),
+                projectSpecificActivities:
+                  configuration.projectSpecificActivities.map(applyTotal),
+              }),
+            ),
+        })),
+        customInnovation: state.customInnovation
+          ? {
+              ...state.customInnovation,
+              pathway: {
+                ...state.customInnovation.pathway,
+                intermediateOutcomes:
+                  state.customInnovation.pathway.intermediateOutcomes.map(
+                    (outcome) => ({
+                      ...outcome,
+                      activities: outcome.activities.map(applyTotal),
                     }),
                   ),
               },

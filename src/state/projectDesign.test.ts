@@ -6,7 +6,9 @@ import type {
 import {
   getMissingActivityCompletionMessages,
   getPathwayConfigurationStatus,
+  getSelectedActivityCount,
   getSelectedPrimaryPathwayCount,
+  hasConfiguredActivityQuantityOrUnit,
   hasRequiredPrimaryPathways,
   initialProjectDesignState,
   intermediateOutcomeHasRequiredActivity,
@@ -783,5 +785,115 @@ describe('project design selection and pathway configuration', () => {
     expect(getPathwayConfigurationStatus(configured.projectPathways[0]!)).toBe(
       'configured',
     )
+  })
+
+  it('applies the project Self Help Group total only to selected activities', () => {
+    let state = projectDesignReducer(addPathway(initialProjectDesignState), {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = projectDesignReducer(state, {
+      type: 'setStandardActivity',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityId: 'ACT_SELECTED',
+      selected: true,
+      output: {
+        plannedQuantity: 12,
+        outputUnitSelection: 'people',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: 'Manually reviewed standard wording',
+      },
+    })
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      activity: {
+        id: 'CUSTOM_SELECTED',
+        wording: 'Custom selected activity',
+        projectDetails: 'Keep these notes',
+        plannedQuantity: 3,
+        outputUnitSelection: 'events',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: 'Manually reviewed custom wording',
+      },
+    })
+
+    expect(getSelectedActivityCount(state)).toBe(2)
+    expect(hasConfiguredActivityQuantityOrUnit(state)).toBe(true)
+    const applied = projectDesignReducer(state, {
+      type: 'setAllActivityOutputsToProjectSelfHelpGroups',
+    })
+    const output = configuration(applied)
+    expect(output.standardActivities).toHaveLength(1)
+    expect(output.projectSpecificActivities).toHaveLength(1)
+    expect(output.standardActivities[0]).toMatchObject({
+      frameworkActivityId: 'ACT_SELECTED',
+      plannedQuantity: 50,
+      outputUnitSelection: 'self-help-groups',
+      useProjectSelfHelpGroupTotal: true,
+      outputTextOverride: 'Manually reviewed standard wording',
+    })
+    expect(output.projectSpecificActivities[0]).toMatchObject({
+      id: 'CUSTOM_SELECTED',
+      projectDetails: 'Keep these notes',
+      plannedQuantity: 50,
+      outputUnitSelection: 'self-help-groups',
+      useProjectSelfHelpGroupTotal: true,
+      outputTextOverride: 'Manually reviewed custom wording',
+    })
+    expect(
+      output.standardActivities.some(
+        (activity) => activity.frameworkActivityId === 'ACT_UNSELECTED',
+      ),
+    ).toBe(false)
+  })
+
+  it('keeps bulk-linked quantities in sync and allows individual exceptions', () => {
+    let state = projectDesignReducer(addPathway(initialProjectDesignState), {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = projectDesignReducer(state, {
+      type: 'setStandardActivity',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityId: 'ACT_1',
+      selected: true,
+    })
+    state = projectDesignReducer(state, {
+      type: 'setAllActivityOutputsToProjectSelfHelpGroups',
+    })
+    state = projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 75 },
+    })
+    expect(configuration(state).standardActivities[0]).toMatchObject({
+      plannedQuantity: 75,
+      outputUnitSelection: 'self-help-groups',
+      useProjectSelfHelpGroupTotal: true,
+    })
+
+    state = projectDesignReducer(state, {
+      type: 'updateStandardActivityOutput',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityId: 'ACT_1',
+      output: {
+        plannedQuantity: 20,
+        outputUnitSelection: 'people',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
+    })
+    expect(configuration(state).standardActivities[0]).toMatchObject({
+      plannedQuantity: 20,
+      outputUnitSelection: 'people',
+      useProjectSelfHelpGroupTotal: false,
+    })
   })
 })

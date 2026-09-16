@@ -1,5 +1,10 @@
 import { useLayoutEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { useAuthenticatedUser } from '../services/authenticationContext'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import {
@@ -238,8 +243,9 @@ function ProjectBasket({
   onClose: () => void
   showConfigureHandoff: boolean
 }) {
+  const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, dispatch } = useProjectDesign()
+  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
   const projectTitle = state.metadata.title.trim() || 'Untitled project'
   const incompleteOutcomeCount = getIncompleteFinalOutcomeIds(state).length
   const configureAvailable = canContinueToConfigure(state)
@@ -262,6 +268,13 @@ function ProjectBasket({
         ]
       : []),
   ]
+
+  const saveAndConfigure = async () => {
+    const saved = await saveProject()
+    if (!saved) return
+    onClose()
+    navigate('/design/configure')
+  }
 
   const removeOutcome = (finalOutcomeId: string) => {
     const linkedPathwayIds = state.outcomePathwayLinks
@@ -572,13 +585,16 @@ function ProjectBasket({
             configure your selected pathways.
           </p>
           {configureAvailable ? (
-            <NavLink
+            <button
               className="button primary large basket-continue"
-              to="/design/configure"
-              onClick={onClose}
+              type="button"
+              onClick={() => void saveAndConfigure()}
+              disabled={saveStatus === 'saving'}
             >
-              Continue to configure pathways
-            </NavLink>
+              {saveStatus === 'saving'
+                ? 'Saving…'
+                : 'Save & continue to configure pathways'}
+            </button>
           ) : (
             <>
               <p className="basket-handoff-requirement" role="status">
@@ -593,7 +609,7 @@ function ProjectBasket({
                 type="button"
                 disabled
               >
-                Continue to configure pathways
+                Save & continue to configure pathways
               </button>
             </>
           )}

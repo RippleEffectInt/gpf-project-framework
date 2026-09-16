@@ -2287,6 +2287,36 @@ label .field-error {
   line-height: 1.45;
 }
 
+.bulk-shg-output-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin: -0.75rem 0 2rem;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid #bfd0c6;
+  border-radius: 10px;
+  background: #f8fbf9;
+}
+
+.bulk-shg-output-panel h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.bulk-shg-output-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.bulk-shg-output-feedback {
+  grid-column: 1 / -1;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  color: var(--brand-dark) !important;
+  font-weight: 700;
+}
+
 .overview-section-heading {
   margin-bottom: 1rem;
 }
@@ -2663,6 +2693,18 @@ label .field-error {
 
   .selected-outcomes-overview {
     grid-template-columns: 1fr;
+  }
+
+  .bulk-shg-output-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-shg-output-panel .button {
+    width: 100%;
+  }
+
+  .bulk-shg-output-feedback {
+    grid-column: 1;
   }
 
   .overview-card-action {

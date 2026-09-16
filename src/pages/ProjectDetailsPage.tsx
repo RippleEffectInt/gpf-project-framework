@@ -32,13 +32,13 @@ export function ProjectDetailsPage() {
     setErrors((current) => ({ ...current, [field]: undefined }))
   }
 
-  const saveDraft = () => void saveProject()
-
-  const continueToOutcomes = (event: FormEvent) => {
+  const continueToOutcomes = async (event: FormEvent) => {
     event.preventDefault()
     const validationErrors = validate(state.metadata)
     setErrors(validationErrors)
-    if (Object.keys(validationErrors).length === 0) {
+    if (Object.keys(validationErrors).length > 0) return
+    const saved = await saveProject()
+    if (saved) {
       navigate('/design/outcomes')
     }
   }
@@ -222,15 +222,11 @@ export function ProjectDetailsPage() {
                     : saveError?.message}
           </div>
           <button
-            className="button secondary"
-            type="button"
-            onClick={saveDraft}
+            className="button primary"
+            type="submit"
             disabled={saveStatus === 'saving'}
           >
-            {saveStatus === 'saving' ? 'Saving…' : 'Save Draft'}
-          </button>
-          <button className="button primary" type="submit">
-            Continue
+            {saveStatus === 'saving' ? 'Saving…' : 'Save & continue'}
           </button>
         </div>
       </form>

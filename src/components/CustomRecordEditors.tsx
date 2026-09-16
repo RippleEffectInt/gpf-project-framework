@@ -200,18 +200,21 @@ export function CustomActivitiesEditor({
       reset()
       return
     }
+    const activity = {
+      id: createLocalId('custom-act'),
+      wording: wording.trim(),
+      projectDetails: projectDetails.trim(),
+      ...createCustomActivityOutputPlanning(),
+    }
     dispatch({
       type: 'addCustomIoActivity',
       intermediateOutcomeId,
-      activity: {
-        id: createLocalId('custom-act'),
-        wording: wording.trim(),
-        projectDetails: projectDetails.trim(),
-        ...createCustomActivityOutputPlanning(),
-      },
+      activity,
     })
     setFeedback(ADDED_SESSION_MESSAGE)
-    reset()
+    setEditingId(activity.id)
+    setWording(activity.wording)
+    setProjectDetails(activity.projectDetails)
   }
 
   return (

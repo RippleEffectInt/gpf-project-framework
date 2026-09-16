@@ -21,7 +21,7 @@ const GOVERNANCE_MESSAGE =
 export function CustomInnovationPage() {
   const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, dispatch } = useProjectDesign()
+  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
   const custom = state.customInnovation
 
   if (!data) {
@@ -88,6 +88,11 @@ export function CustomInnovationPage() {
       dispatch({ type: 'removeCustomInnovation' })
       navigate('/design/outcomes')
     }
+  }
+
+  const saveAndContinue = async (destination: string) => {
+    const saved = await saveProject()
+    if (saved) navigate(destination)
   }
 
   return (
@@ -362,13 +367,27 @@ export function CustomInnovationPage() {
         </button>
         {validation.complete ? (
           <>
-            <Link className="button primary" to="/design/outcomes">
-              Save custom outcome and continue choosing outcomes
-            </Link>
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => void saveAndContinue('/design/outcomes')}
+              disabled={saveStatus === 'saving'}
+            >
+              {saveStatus === 'saving'
+                ? 'Saving…'
+                : 'Save custom outcome and continue choosing outcomes'}
+            </button>
             {canConfigure ? (
-              <Link className="button secondary" to="/design/configure">
-                Save custom outcome and continue to configure pathways
-              </Link>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => void saveAndContinue('/design/configure')}
+                disabled={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving'
+                  ? 'Saving…'
+                  : 'Save custom outcome and continue to configure pathways'}
+              </button>
             ) : (
               <button className="button secondary" type="button" disabled>
                 Save custom outcome and continue to configure pathways

@@ -21,6 +21,7 @@ import {
   getMissingActivityCompletionMessages,
   getPathwayConfigurationStatus,
   intermediateOutcomeHasRequiredActivity,
+  projectDesignReducer,
 } from '../state/projectDesign'
 import { PlannedOutputEditor } from '../components/PlannedOutputEditor'
 import {
@@ -277,7 +278,9 @@ function ProjectSpecificActivitiesEditor({
       activity,
     })
     setFeedback(ADDED_SESSION_MESSAGE)
-    reset()
+    setEditingId(activity.id)
+    setWording(activity.wording)
+    setProjectDetails(activity.projectDetails)
   }
 
   return (
@@ -649,7 +652,7 @@ function IntermediateOutcomeConfigurationCard({
   outcome: IntermediateOutcome
   configuration: ProjectIntermediateOutcomeConfiguration
 }) {
-  const { dispatch, state } = useProjectDesign()
+  const { dispatch, state, saveProject, saveStatus } = useProjectDesign()
   const plannedSelfHelpGroupCount =
     state.metadata.plannedSelfHelpGroupCount
   const primaryIndicator = getPrimaryIndicatorForIntermediateOutcome(
@@ -693,6 +696,24 @@ function IntermediateOutcomeConfigurationCard({
         ? 'In progress'
         : 'Not started'
   const [open, setOpen] = useState(false)
+  const [savingStep, setSavingStep] = useState(false)
+
+  const saveCompletedStep = async () => {
+    const action = {
+      type: 'setIntermediateOutcomeReviewed' as const,
+      pathwayId,
+      intermediateOutcomeId: outcome.id,
+      reviewed: true,
+    }
+    const nextState = projectDesignReducer(state, action)
+    dispatch(action)
+    setSavingStep(true)
+    try {
+      await saveProject(nextState)
+    } finally {
+      setSavingStep(false)
+    }
+  }
 
   return (
     <li className="configuration-chain-item">
@@ -951,21 +972,17 @@ function IntermediateOutcomeConfigurationCard({
               }`}
               type="button"
               disabled={
+                saveStatus === 'saving' ||
                 !configuration.primaryIndicator ||
                 !intermediateOutcomeHasRequiredActivity(configuration)
               }
-              onClick={() =>
-                dispatch({
-                  type: 'setIntermediateOutcomeReviewed',
-                  pathwayId,
-                  intermediateOutcomeId: outcome.id,
-                  reviewed: true,
-                })
-              }
+              onClick={() => void saveCompletedStep()}
             >
-              {configuration.reviewed
-                ? '✓ Step configured'
-                : 'Done with this step'}
+              {savingStep
+                ? 'Saving…'
+                : configuration.reviewed
+                  ? '✓ Step configured'
+                  : 'Done with this step'}
             </button>
           </div>
         </div>
@@ -978,7 +995,8 @@ export function PathwayConfigurationPage() {
   const { pathwayId = '' } = useParams()
   const navigate = useNavigate()
   const { data, loading, error, retry } = useFramework()
-  const { state, dispatch } = useProjectDesign()
+  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
+  const [savingAndReturning, setSavingAndReturning] = useState(false)
 
   if (!data) {
     return (
@@ -1111,8 +1129,8 @@ export function PathwayConfigurationPage() {
           <h2>Confirm you are done</h2>
           <p>
             Every Intermediate Outcome needs at least one activity. Additional
-            indicators, activity notes and inputs remain optional. Use Save
-            project to persist your changes.
+            indicators, activity notes and inputs remain optional. Save and
+            return to the pathway list when finished.
           </p>
           {missingActivityMessages.length > 0 && (
             <ul className="missing-activity-list">
@@ -1125,15 +1143,33 @@ export function PathwayConfigurationPage() {
         <button
           className="button primary large"
           type="button"
+          disabled={
+            saveStatus === 'saving' ||
+            missingActivityMessages.length > 0
+          }
           onClick={() => {
             if (missingActivityMessages.length > 0) {
               return
             }
-            dispatch({ type: 'markPathwayConfigured', pathwayId })
-            navigate('/design/configure', { replace: true })
+            const action = {
+              type: 'markPathwayConfigured' as const,
+              pathwayId,
+            }
+            const nextState = projectDesignReducer(state, action)
+            dispatch(action)
+            setSavingAndReturning(true)
+            void saveProject(nextState)
+              .then((saved) => {
+                if (saved) {
+                  navigate('/design/configure', { replace: true })
+                }
+              })
+              .finally(() => setSavingAndReturning(false))
           }}
         >
-          Done configuring this pathway
+          {savingAndReturning
+            ? 'Saving…'
+            : 'Save & return to pathways'}
         </button>
       </section>
     </div>

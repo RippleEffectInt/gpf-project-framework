@@ -137,7 +137,7 @@ interface ProjectDesignContextValue {
   metadataSyncRequired: boolean
   metadataSyncing: boolean
   metadataSyncError: ProjectPersistenceError | null
-  saveProject: () => Promise<boolean>
+  saveProject: (designOverride?: ProjectDesignState) => Promise<boolean>
   retryMetadataSync: () => Promise<void>
   startNewProject: () => void
   openProject: (id: string) => Promise<void>
@@ -249,7 +249,9 @@ export function ProjectDesignProvider({
     [framework, selectFrameworkVersion],
   )
 
-  const saveProject = useCallback(async (): Promise<boolean> => {
+  const saveProject = useCallback(async (
+    designOverride?: ProjectDesignState,
+  ): Promise<boolean> => {
     if (!framework) {
       setSaveError(
         new ProjectPersistenceError(
@@ -260,7 +262,7 @@ export function ProjectDesignProvider({
       setSaveStatus('error')
       return false
     }
-    const designToSave = state
+    const designToSave = designOverride ?? state
     if (!designToSave.metadata.title.trim()) {
       setSaveError(
         new ProjectPersistenceError(
