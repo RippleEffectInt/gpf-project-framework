@@ -164,10 +164,6 @@ export function TheoryOfChangePage() {
       </section>
 
       <TheoryOfChangeGraph graph={graph} />
-      <p className="toc-export-note">
-        Image export is deliberately deferred until full-graph capture can
-        include every branch, the legend and project title without clipping.
-      </p>
     </div>
   )
 }

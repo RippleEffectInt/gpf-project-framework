@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
+import { ProjectExportPanel } from '../components/ProjectExportPanel'
 import { ReadinessPanel } from '../components/ReadinessPanel'
 import { inputCategories } from '../data/inputCategories'
 import {
@@ -400,6 +401,8 @@ export function ReviewProjectPage() {
           </button>
         )}
       </section>
+
+      <ProjectExportPanel />
 
       <section
         className="review-section"

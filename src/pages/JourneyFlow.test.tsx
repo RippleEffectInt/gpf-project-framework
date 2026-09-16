@@ -805,6 +805,21 @@ describe('custom innovation and project review', () => {
     expect(screen.getByText('Selected pathways')).toBeInTheDocument()
     expect(screen.queryByText('CUSTOM INNOVATION')).not.toBeInTheDocument()
     expect(screen.queryByText(/Shared pathway/i)).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export project' }),
+    )
+    expect(
+      screen.getByText(
+        'You have unsaved changes. Save the project before exporting.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Save project' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Download Excel' }),
+    ).not.toBeInTheDocument()
   })
 })
 

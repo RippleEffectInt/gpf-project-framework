@@ -11,6 +11,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  getTheoryOfChangeDisplayEdges,
   layoutTheoryOfChangeGraph,
   type TocLaneLayout,
 } from '../theoryOfChange/layoutTheoryOfChangeGraph'
@@ -133,90 +134,54 @@ function toFlowEdges(
   graph: TocGraphModel,
   positioned: TocLaneLayout,
 ): TocFlowEdge[] {
-  return graph.edges.flatMap((edge) => {
-    const sourceNode = graph.nodes.find((node) => node.id === edge.source)
-    const targetNode = graph.nodes.find((node) => node.id === edge.target)
-    if (
-      edge.relationshipType === 'intermediateOutcomeChain' &&
-      targetNode?.type === 'pathway'
-    ) {
-      return []
-    }
-
-    let source = edge.source
-    if (
-      (edge.relationshipType === 'primaryPathway' ||
-        edge.relationshipType === 'relatedPathway') &&
-      sourceNode?.type === 'pathway'
-    ) {
-      const pathwayEntityId = sourceNode.id.replace(/^toc:pathway:/, '')
-      const finalStep = positioned.nodes
-        .filter(
-          (item) =>
-            item.node.type === 'intermediateOutcome' &&
-            item.node.data.pathwayId === pathwayEntityId,
-        )
-        .sort((left, right) => {
-          if (
-            left.node.type !== 'intermediateOutcome' ||
-            right.node.type !== 'intermediateOutcome'
-          ) {
-            return 0
-          }
-          return right.node.data.stepNumber - left.node.data.stepNumber
-        })[0]
-      source = finalStep?.node.id ?? edge.source
-    }
-
+  return getTheoryOfChangeDisplayEdges(graph, positioned).map((edge) => {
     const style = edgeStyles[edge.relationshipType]
     const isIntermediateChain =
       edge.relationshipType === 'intermediateOutcomeChain'
     const isPathwayRelationship =
       edge.relationshipType === 'primaryPathway' ||
       edge.relationshipType === 'relatedPathway'
-    return [
-      {
-        id: edge.id,
-        source,
-        target: edge.target,
-        type: 'smoothstep',
-        sourceHandle: isIntermediateChain ? 'bottom' : 'right',
-        targetHandle: isIntermediateChain ? 'top' : 'left',
-        focusable: false,
-        selectable: false,
-        className: `toc-edge toc-edge-${edge.relationshipType}`,
-        data: { relationshipType: edge.relationshipType },
-        style,
-        label: isPathwayRelationship
-          ? edge.relationshipType === 'primaryPathway'
-            ? 'Primary'
-            : 'Related'
-          : undefined,
-        labelStyle: {
-          fill: '#4a554f',
-          fontSize: 10,
-          fontWeight: 700,
-        },
-        labelBgStyle: {
-          fill: '#ffffff',
-          fillOpacity: 0.94,
-        },
-        labelBgPadding: [4, 2],
-        labelBgBorderRadius: 3,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 16,
-          height: 16,
-          color: style.stroke,
-        },
-        ariaLabel:
-          edge.relationshipType === 'relatedPathway'
-            ? 'Related pathway relationship'
-            : edge.relationshipType === 'primaryPathway'
-              ? 'Primary pathway relationship'
-              : 'Causal relationship',
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      type: 'smoothstep',
+      sourceHandle: isIntermediateChain ? 'bottom' : 'right',
+      targetHandle: isIntermediateChain ? 'top' : 'left',
+      focusable: false,
+      selectable: false,
+      className: `toc-edge toc-edge-${edge.relationshipType}`,
+      data: { relationshipType: edge.relationshipType },
+      style,
+      label: isPathwayRelationship
+        ? edge.relationshipType === 'primaryPathway'
+          ? 'Primary'
+          : 'Related'
+        : undefined,
+      labelStyle: {
+        fill: '#4a554f',
+        fontSize: 10,
+        fontWeight: 700,
       },
-    ]
+      labelBgStyle: {
+        fill: '#ffffff',
+        fillOpacity: 0.94,
+      },
+      labelBgPadding: [4, 2] as [number, number],
+      labelBgBorderRadius: 3,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 16,
+        height: 16,
+        color: style.stroke,
+      },
+      ariaLabel:
+        edge.relationshipType === 'relatedPathway'
+          ? 'Related pathway relationship'
+          : edge.relationshipType === 'primaryPathway'
+            ? 'Primary pathway relationship'
+            : 'Causal relationship',
+    }
   })
 }
 

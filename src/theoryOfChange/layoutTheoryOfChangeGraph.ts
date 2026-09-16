@@ -1,4 +1,9 @@
-import type { PositionedTocGraph, TocGraphModel, TocNode } from './types'
+import type {
+  PositionedTocGraph,
+  TocEdge,
+  TocGraphModel,
+  TocNode,
+} from './types'
 
 export const TOC_LANE_COLUMNS = {
   pathway: { x: 30, width: 150 },
@@ -234,4 +239,44 @@ export function layoutTheoryOfChangeGraph(graph: TocGraphModel): TocLaneLayout {
       height: Math.max(nextLaneY - LANE_GAP + LANE_TOP, contentBottom + 36),
     },
   }
+}
+
+export function getTheoryOfChangeDisplayEdges(
+  graph: TocGraphModel,
+  positioned: TocLaneLayout,
+): TocEdge[] {
+  return graph.edges.flatMap((edge) => {
+    const sourceNode = graph.nodes.find((node) => node.id === edge.source)
+    const targetNode = graph.nodes.find((node) => node.id === edge.target)
+    if (
+      edge.relationshipType === 'intermediateOutcomeChain' &&
+      targetNode?.type === 'pathway'
+    ) {
+      return []
+    }
+    if (
+      (edge.relationshipType === 'primaryPathway' ||
+        edge.relationshipType === 'relatedPathway') &&
+      sourceNode?.type === 'pathway'
+    ) {
+      const pathwayEntityId = sourceNode.id.replace(/^toc:pathway:/, '')
+      const finalStep = positioned.nodes
+        .filter(
+          (item) =>
+            item.node.type === 'intermediateOutcome' &&
+            item.node.data.pathwayId === pathwayEntityId,
+        )
+        .sort((left, right) => {
+          if (
+            left.node.type !== 'intermediateOutcome' ||
+            right.node.type !== 'intermediateOutcome'
+          ) {
+            return 0
+          }
+          return right.node.data.stepNumber - left.node.data.stepNumber
+        })[0]
+      return [{ ...edge, source: finalStep?.node.id ?? edge.source }]
+    }
+    return [edge]
+  })
 }

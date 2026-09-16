@@ -144,6 +144,7 @@ interface ProjectDesignContextValue {
   reloadLatestProject: () => Promise<void>
   restoreUnsavedChanges: () => void
   listProjects: () => Promise<ProjectSummary[]>
+  getSavedProjectRecord: () => Promise<ProjectRecord | null>
   pathwayNavigationFeedback: PathwayNavigationFeedback | null
   announcePathwayNavigation: (feedback: PathwayNavigationFeedback) => void
   clearPathwayNavigationFeedback: () => void
@@ -425,6 +426,13 @@ export function ProjectDesignProvider({
     () => repository.listProjects(),
     [repository],
   )
+  const getSavedProjectRecord = useCallback(
+    () =>
+      activeProject
+        ? repository.getProject(activeProject.id)
+        : Promise.resolve(null),
+    [activeProject, repository],
+  )
   const announcePathwayNavigation = useCallback(
     (feedback: PathwayNavigationFeedback) =>
       setPathwayNavigationFeedback(feedback),
@@ -457,6 +465,7 @@ export function ProjectDesignProvider({
       reloadLatestProject,
       restoreUnsavedChanges,
       listProjects,
+      getSavedProjectRecord,
       pathwayNavigationFeedback,
       announcePathwayNavigation,
       clearPathwayNavigationFeedback,
@@ -466,6 +475,7 @@ export function ProjectDesignProvider({
       activeProject,
       clearPathwayNavigationFeedback,
       dispatch,
+      getSavedProjectRecord,
       listProjects,
       openProject,
       pathwayNavigationFeedback,
