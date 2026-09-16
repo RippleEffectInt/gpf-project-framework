@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
 import { getFinalOutcome } from '../services/frameworkService'
@@ -10,18 +9,11 @@ import {
   getPathwayOverviewItems,
 } from '../state/journeySelectors'
 import { getReviewEntryBlockers } from '../state/projectReadiness'
-import {
-  getSelectedActivityCount,
-  hasConfiguredActivityQuantityOrUnit,
-} from '../state/projectDesign'
 
 export function ConfigurePathwaysOverviewPage() {
   const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
-  const [bulkOutputFeedback, setBulkOutputFeedback] = useState<string | null>(
-    null,
-  )
+  const { state, saveProject, saveStatus } = useProjectDesign()
 
   if (!data) {
     return (
@@ -59,29 +51,6 @@ export function ConfigurePathwaysOverviewPage() {
   const nextItem = items.find((item) => item.status !== 'configured')
   const reviewAvailable = canContinueToReview(state)
   const reviewBlockers = getReviewEntryBlockers(data, state)
-  const selectedActivityCount = getSelectedActivityCount(state)
-  const plannedSelfHelpGroupCount =
-    state.metadata.plannedSelfHelpGroupCount
-  const showBulkSelfHelpGroupAction =
-    plannedSelfHelpGroupCount != null &&
-    plannedSelfHelpGroupCount > 0 &&
-    selectedActivityCount > 0
-
-  const applySelfHelpGroupTotal = () => {
-    if (!showBulkSelfHelpGroupAction) return
-    if (
-      hasConfiguredActivityQuantityOrUnit(state) &&
-      !window.confirm(
-        'Some activity outputs have already been configured. Applying this will replace their quantity and unit with the project Self Help Group total. Custom output wording will be kept. Continue?',
-      )
-    ) {
-      return
-    }
-    dispatch({ type: 'setAllActivityOutputsToProjectSelfHelpGroups' })
-    setBulkOutputFeedback(
-      `Activity outputs set to ${plannedSelfHelpGroupCount} Self Help Groups. Review individual activities and change any exceptions.`,
-    )
-  }
 
   const continueToReview = async () => {
     const saved = await saveProject()
@@ -122,38 +91,6 @@ export function ConfigurePathwaysOverviewPage() {
           )}
         </ul>
       </section>
-
-      {showBulkSelfHelpGroupAction && (
-        <section
-          className="bulk-shg-output-panel"
-          aria-labelledby="bulk-shg-output-heading"
-        >
-          <div>
-            <h2 id="bulk-shg-output-heading">
-              Set all activity outputs to {plannedSelfHelpGroupCount} Self Help
-              Groups
-            </h2>
-            <p>
-              Use the project Self Help Group total as the starting point for
-              all selected activities. You can change individual activities
-              afterwards.
-            </p>
-          </div>
-          <button
-            className="button secondary"
-            type="button"
-            onClick={applySelfHelpGroupTotal}
-          >
-            Set all activity outputs to {plannedSelfHelpGroupCount} Self Help
-            Groups
-          </button>
-          {bulkOutputFeedback && (
-            <p className="bulk-shg-output-feedback" role="status">
-              {bulkOutputFeedback}
-            </p>
-          )}
-        </section>
-      )}
 
       {custom && (
         <article

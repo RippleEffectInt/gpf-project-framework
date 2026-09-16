@@ -653,161 +653,6 @@ describe('linear project-design journey', () => {
     ).toHaveLength(1)
   })
 
-  it('shows the bulk Self Help Group action only when a total and activity exist', () => {
-    const intermediateOutcome = primaryPathway.intermediateOutcomes.find(
-      (candidate) =>
-        getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
-          .length > 1,
-    )
-    if (!intermediateOutcome) {
-      throw new Error('Expected an Intermediate Outcome with activities.')
-    }
-    const suggestedActivities = getSuggestedActivitiesForIntermediateOutcome(
-      framework,
-      intermediateOutcome.id,
-    )
-    const activity = suggestedActivities[0]
-    if (!activity) throw new Error('Expected a suggested activity.')
-    let state = addPathway(
-      initialProjectDesignState,
-      outcome.id,
-      primaryPathway,
-      'primary',
-    )
-    state = projectDesignReducer(state, {
-      type: 'setStandardActivity',
-      pathwayId: primaryPathway.pathway.id,
-      intermediateOutcomeId: intermediateOutcome.id,
-      frameworkActivityId: activity.id,
-      selected: true,
-    })
-    const view = renderJourney('/design/configure', state)
-    expect(
-      screen.queryByRole('button', {
-        name: /Set all activity outputs to .* Self Help Groups/,
-      }),
-    ).not.toBeInTheDocument()
-    view.unmount()
-
-    const withTotal = projectDesignReducer(state, {
-      type: 'updateMetadata',
-      payload: { plannedSelfHelpGroupCount: 50 },
-    })
-    renderJourney('/design/configure', withTotal)
-    expect(
-      screen.getByRole('button', {
-        name: 'Set all activity outputs to 50 Self Help Groups',
-      }),
-    ).toBeInTheDocument()
-  })
-
-  it('confirms before bulk overwrite and keeps manually edited wording', () => {
-    const intermediateOutcome = primaryPathway.intermediateOutcomes.find(
-      (candidate) =>
-        getSuggestedActivitiesForIntermediateOutcome(framework, candidate.id)
-          .length > 1,
-    )
-    if (!intermediateOutcome) {
-      throw new Error('Expected an Intermediate Outcome with activities.')
-    }
-    const suggestedActivities = getSuggestedActivitiesForIntermediateOutcome(
-      framework,
-      intermediateOutcome.id,
-    )
-    const activity = suggestedActivities[0]
-    const unselectedActivity = suggestedActivities[1]
-    if (!activity || !unselectedActivity) {
-      throw new Error('Expected at least two suggested activities.')
-    }
-    let state = addPathway(
-      initialProjectDesignState,
-      outcome.id,
-      primaryPathway,
-      'primary',
-    )
-    state = projectDesignReducer(state, {
-      type: 'updateMetadata',
-      payload: { plannedSelfHelpGroupCount: 50 },
-    })
-    state = projectDesignReducer(state, {
-      type: 'setStandardActivity',
-      pathwayId: primaryPathway.pathway.id,
-      intermediateOutcomeId: intermediateOutcome.id,
-      frameworkActivityId: activity.id,
-      selected: true,
-      output: {
-        plannedQuantity: 10,
-        outputUnitSelection: 'people',
-        customOutputUnit: null,
-        useProjectSelfHelpGroupTotal: false,
-        outputTextOverride: 'Preserved custom output wording',
-      },
-    })
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    renderJourney('/design/configure', state)
-    const bulkButton = screen.getByRole('button', {
-      name: 'Set all activity outputs to 50 Self Help Groups',
-    })
-    fireEvent.click(bulkButton)
-    expect(confirmSpy).toHaveBeenCalledWith(
-      'Some activity outputs have already been configured. Applying this will replace their quantity and unit with the project Self Help Group total. Custom output wording will be kept. Continue?',
-    )
-    expect(
-      screen.queryByText(
-        'Activity outputs set to 50 Self Help Groups. Review individual activities and change any exceptions.',
-      ),
-    ).not.toBeInTheDocument()
-
-    confirmSpy.mockReturnValue(true)
-    fireEvent.click(bulkButton)
-    expect(
-      screen.getByText(
-        'Activity outputs set to 50 Self Help Groups. Review individual activities and change any exceptions.',
-      ),
-    ).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('link', { name: 'Configure pathway' }),
-    )
-    const heading = screen.getByRole('heading', {
-      name: intermediateOutcome.statement,
-    })
-    const summary = heading.closest('summary')
-    if (!summary?.parentElement) {
-      throw new Error('Expected Intermediate Outcome configuration.')
-    }
-    fireEvent.click(summary)
-    const activityOption = screen.getByText(activity.text).closest(
-      '.activity-option',
-    )
-    if (!(activityOption instanceof HTMLElement)) {
-      throw new Error('Expected selected activity configuration.')
-    }
-    const output = within(activityOption)
-    expect(output.getByLabelText('Output unit')).toHaveValue(
-      'self-help-groups',
-    )
-    expect(
-      output.getByRole('checkbox', {
-        name: 'Use all 50 Self Help Groups',
-      }),
-    ).toBeChecked()
-    expect(
-      output.getByText(
-        'Planned output: Preserved custom output wording',
-      ),
-    ).toBeInTheDocument()
-    const unselectedOption = screen
-      .getByText(unselectedActivity.text)
-      .closest('.activity-option')
-    if (!(unselectedOption instanceof HTMLElement)) {
-      throw new Error('Expected unselected activity option.')
-    }
-    expect(
-      within(unselectedOption).getByRole('checkbox'),
-    ).not.toBeChecked()
-    confirmSpy.mockRestore()
-  })
-
   it('saves before returning to the overview with optional sections empty', async () => {
     const configuredState = addRequiredActivities(
       addPathway(
@@ -2627,6 +2472,215 @@ describe('persistent project title and bulk activity selection', () => {
     expect(
       within(card).getByRole('checkbox', { name: 'Include all activities' }),
     ).toBeInTheDocument()
+  })
+
+  it('shows the SHG bulk checkbox only when the project has an SHG total', () => {
+    const { intermediateOutcome } = intermediateOutcomeWithActivities()
+    const withoutTotal = addPathway(
+      titledState(),
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    const view = renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      withoutTotal,
+    )
+    expect(
+      screen.queryByRole('checkbox', {
+        name: /Include all activities and set outputs to/,
+      }),
+    ).not.toBeInTheDocument()
+    view.unmount()
+
+    const withTotal = projectDesignReducer(withoutTotal, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      withTotal,
+    )
+    const heading = screen.getByRole('heading', {
+      name: intermediateOutcome.statement,
+    })
+    const card = heading.closest('details')
+    if (!card) throw new Error('Expected Intermediate Outcome card.')
+    expect(
+      within(card).getByRole('checkbox', {
+        name: 'Include all activities and set outputs to 50 Self Help Groups',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('confirms bulk SHG replacement, preserves wording, and leaves custom activities unchanged', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    if (activities.length < 2) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    let state = projectDesignReducer(titledState(), {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = addPathway(
+      state,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    state = projectDesignReducer(state, {
+      type: 'setStandardActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId: intermediateOutcome.id,
+      frameworkActivityId: activities[0]!.id,
+      selected: true,
+      output: {
+        plannedQuantity: 10,
+        outputUnitSelection: 'people',
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: 'Preserved manual output wording',
+      },
+    })
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId: intermediateOutcome.id,
+      activity: completeCustomActivity,
+    })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const { card } = openActivityCard(intermediateOutcome.statement)
+    const cardQueries = within(card)
+    const includeAll = cardQueries.getByRole('checkbox', {
+      name: 'Include all activities',
+    })
+    const includeAllWithOutputs = cardQueries.getByRole('checkbox', {
+      name: 'Include all activities and set outputs to 50 Self Help Groups',
+    })
+
+    fireEvent.click(includeAllWithOutputs)
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Some selected activities already have output quantities or units configured. Replace those quantity/unit settings with 50 Self Help Groups? Custom output wording will be kept.',
+    )
+    expect(includeAllWithOutputs).not.toBeChecked()
+    expect(cardQueries.getByLabelText(activities[0]!.text)).toBeChecked()
+    expect(cardQueries.getByLabelText(activities[1]!.text)).not.toBeChecked()
+    const initiallySelectedActivity = cardQueries
+      .getByText(activities[0]!.text)
+      .closest('.activity-option')
+    if (!(initiallySelectedActivity instanceof HTMLElement)) {
+      throw new Error('Expected preconfigured activity controls.')
+    }
+    expect(
+      within(initiallySelectedActivity).getByLabelText('Planned quantity'),
+    ).toHaveValue('10')
+    expect(
+      within(initiallySelectedActivity).getByLabelText('Output unit'),
+    ).toHaveValue('people')
+
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(includeAllWithOutputs)
+
+    expect(includeAll).toBeChecked()
+    expect(includeAllWithOutputs).toBeChecked()
+    for (const activity of activities) {
+      expect(cardQueries.getByLabelText(activity.text)).toBeChecked()
+      const activityOption = cardQueries
+        .getByText(activity.text)
+        .closest('.activity-option')
+      if (!(activityOption instanceof HTMLElement)) {
+        throw new Error('Expected suggested activity output controls.')
+      }
+      expect(
+        within(activityOption).getByLabelText('Output unit'),
+      ).toHaveValue('self-help-groups')
+      expect(
+        within(activityOption).getByRole('checkbox', {
+          name: 'Use all 50 Self Help Groups',
+        }),
+      ).toBeChecked()
+    }
+    expect(
+      cardQueries.getByText(
+        'Planned output: Preserved manual output wording',
+      ),
+    ).toBeInTheDocument()
+    const customActivity = cardQueries
+      .getByText(completeCustomActivity.wording)
+      .closest('li')
+    if (!(customActivity instanceof HTMLElement)) {
+      throw new Error('Expected custom activity card.')
+    }
+    expect(within(customActivity).getByLabelText('Output unit')).toHaveValue('')
+
+    fireEvent.click(includeAllWithOutputs)
+    expect(includeAllWithOutputs).not.toBeChecked()
+    expect(includeAll).toBeChecked()
+    for (const activity of activities) {
+      expect(cardQueries.getByLabelText(activity.text)).toBeChecked()
+    }
+    expect(
+      cardQueries.getByText(
+        'Planned output: Preserved manual output wording',
+      ),
+    ).toBeInTheDocument()
+    expect(within(customActivity).getByLabelText('Output unit')).toHaveValue('')
+    confirmSpy.mockRestore()
+  })
+
+  it('updates the SHG bulk checkbox when an individual activity changes', () => {
+    const { intermediateOutcome, activities } =
+      intermediateOutcomeWithActivities()
+    if (activities.length < 2) {
+      throw new Error('Expected at least two suggested activities.')
+    }
+    let state = projectDesignReducer(titledState(), {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = addPathway(
+      state,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    renderJourney(
+      `/design/pathways/${primaryPathway.pathway.id}/configure`,
+      state,
+    )
+    const { card } = openActivityCard(intermediateOutcome.statement)
+    const cardQueries = within(card)
+    const includeAllWithOutputs = cardQueries.getByRole('checkbox', {
+      name: 'Include all activities and set outputs to 50 Self Help Groups',
+    })
+    fireEvent.click(includeAllWithOutputs)
+    expect(includeAllWithOutputs).toBeChecked()
+
+    const firstActivity = cardQueries
+      .getByText(activities[0]!.text)
+      .closest('.activity-option')
+    if (!(firstActivity instanceof HTMLElement)) {
+      throw new Error('Expected suggested activity controls.')
+    }
+    fireEvent.change(within(firstActivity).getByLabelText('Output unit'), {
+      target: { value: 'people' },
+    })
+
+    expect(includeAllWithOutputs).not.toBeChecked()
+    expect(
+      (includeAllWithOutputs as HTMLInputElement).indeterminate,
+    ).toBe(true)
+    expect(
+      cardQueries.getByRole('checkbox', {
+        name: 'Include all activities',
+      }),
+    ).toBeChecked()
   })
 
   it('selects and clears all suggested activities from Include all activities', () => {

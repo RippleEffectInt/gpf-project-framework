@@ -46,7 +46,6 @@ export const initialProjectDesignState: ProjectDesignState = {
 
 export type ProjectDesignAction =
   | { type: 'updateMetadata'; payload: Partial<ProjectMetadata> }
-  | { type: 'setAllActivityOutputsToProjectSelfHelpGroups' }
   | { type: 'selectFinalOutcome'; finalOutcomeId: string }
   | {
       type: 'addPathway'
@@ -102,6 +101,13 @@ export type ProjectDesignAction =
       frameworkActivityIds: string[]
       selected: boolean
       outputsByActivityId?: Record<string, ActivityOutputPlanning>
+    }
+  | {
+      type: 'setSuggestedActivitiesSelfHelpGroupOutputs'
+      pathwayId: string
+      intermediateOutcomeId: string
+      frameworkActivityIds: string[]
+      enabled: boolean
     }
   | {
       type: 'updateStandardActivityNotes'
@@ -407,40 +413,6 @@ export function hasRequiredPrimaryPathways(state: ProjectDesignState): boolean {
   )
 }
 
-function selectedActivities(state: ProjectDesignState) {
-  return [
-    ...state.projectPathways.flatMap((pathway) =>
-      pathway.intermediateOutcomeConfigurations.flatMap(
-        (configuration) => [
-          ...configuration.standardActivities,
-          ...configuration.projectSpecificActivities,
-        ],
-      ),
-    ),
-    ...(state.customInnovation?.pathway.intermediateOutcomes.flatMap(
-      (outcome) => outcome.activities,
-    ) ?? []),
-  ]
-}
-
-export function getSelectedActivityCount(
-  state: ProjectDesignState,
-): number {
-  return selectedActivities(state).length
-}
-
-export function hasConfiguredActivityQuantityOrUnit(
-  state: ProjectDesignState,
-): boolean {
-  return selectedActivities(state).some(
-    (activity) =>
-      activity.plannedQuantity != null ||
-      activity.outputUnitSelection != null ||
-      Boolean(activity.customOutputUnit?.trim()) ||
-      activity.useProjectSelfHelpGroupTotal === true,
-  )
-}
-
 export function projectDesignReducer(
   state: ProjectDesignState,
   action: ProjectDesignAction,
@@ -493,55 +465,61 @@ export function projectDesignReducer(
       }
     }
 
-    case 'setAllActivityOutputsToProjectSelfHelpGroups': {
+    case 'setSuggestedActivitiesSelfHelpGroupOutputs': {
       const total = state.metadata.plannedSelfHelpGroupCount
-      if (!Number.isInteger(total) || total === null || total < 1) {
+      if (
+        action.enabled &&
+        (!Number.isInteger(total) || total === null || total < 1)
+      ) {
         return state
       }
-      const applyTotal = <
-        T extends
-          | ProjectSpecificActivity
-          | { frameworkActivityId: string; projectNotes: string },
-      >(
-        activity: T,
-      ): T => ({
-        ...activity,
-        plannedQuantity: total,
-        outputUnitSelection: 'self-help-groups',
-        customOutputUnit: null,
-        useProjectSelfHelpGroupTotal: true,
-      })
-      return {
-        ...state,
-        projectPathways: state.projectPathways.map((pathway) => ({
-          ...pathway,
-          intermediateOutcomeConfigurations:
-            pathway.intermediateOutcomeConfigurations.map(
-              (configuration) => ({
-                ...configuration,
-                standardActivities:
-                  configuration.standardActivities.map(applyTotal),
-                projectSpecificActivities:
-                  configuration.projectSpecificActivities.map(applyTotal),
-              }),
-            ),
-        })),
-        customInnovation: state.customInnovation
-          ? {
-              ...state.customInnovation,
-              pathway: {
-                ...state.customInnovation.pathway,
-                intermediateOutcomes:
-                  state.customInnovation.pathway.intermediateOutcomes.map(
-                    (outcome) => ({
-                      ...outcome,
-                      activities: outcome.activities.map(applyTotal),
-                    }),
-                  ),
-              },
+      return updateIntermediateOutcomeConfiguration(
+        state,
+        action.pathwayId,
+        action.intermediateOutcomeId,
+        (configuration) => {
+          const suggestedIds = new Set(action.frameworkActivityIds)
+          if (!action.enabled) {
+            return {
+              ...configuration,
+              standardActivities: configuration.standardActivities.map(
+                (activity) =>
+                  suggestedIds.has(activity.frameworkActivityId) &&
+                  activity.outputUnitSelection === 'self-help-groups' &&
+                  activity.useProjectSelfHelpGroupTotal
+                    ? {
+                        ...activity,
+                        useProjectSelfHelpGroupTotal: false,
+                      }
+                    : activity,
+              ),
             }
-          : null,
-      }
+          }
+          const existingById = new Map(
+            configuration.standardActivities.map((activity) => [
+              activity.frameworkActivityId,
+              activity,
+            ]),
+          )
+          return {
+            ...configuration,
+            standardActivities: [
+              ...configuration.standardActivities.filter(
+                (activity) =>
+                  !suggestedIds.has(activity.frameworkActivityId),
+              ),
+              ...action.frameworkActivityIds.map((frameworkActivityId) => ({
+                ...(existingById.get(frameworkActivityId) ??
+                  createStandardActivitySelection(frameworkActivityId)),
+                plannedQuantity: total,
+                outputUnitSelection: 'self-help-groups' as const,
+                customOutputUnit: null,
+                useProjectSelfHelpGroupTotal: true,
+              })),
+            ],
+          }
+        },
+      )
     }
 
     case 'selectFinalOutcome':

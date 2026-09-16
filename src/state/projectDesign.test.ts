@@ -6,9 +6,7 @@ import type {
 import {
   getMissingActivityCompletionMessages,
   getPathwayConfigurationStatus,
-  getSelectedActivityCount,
   getSelectedPrimaryPathwayCount,
-  hasConfiguredActivityQuantityOrUnit,
   hasRequiredPrimaryPathways,
   initialProjectDesignState,
   intermediateOutcomeHasRequiredActivity,
@@ -787,7 +785,7 @@ describe('project design selection and pathway configuration', () => {
     )
   })
 
-  it('applies the project Self Help Group total only to selected activities', () => {
+  it('sets suggested activities for one Intermediate Outcome to the project SHG total', () => {
     let state = projectDesignReducer(addPathway(initialProjectDesignState), {
       type: 'updateMetadata',
       payload: { plannedSelfHelpGroupCount: 50 },
@@ -796,14 +794,14 @@ describe('project design selection and pathway configuration', () => {
       type: 'setStandardActivity',
       pathwayId: 'PW_X',
       intermediateOutcomeId: 'IO_1',
-      frameworkActivityId: 'ACT_SELECTED',
+      frameworkActivityId: 'ACT_1',
       selected: true,
       output: {
-        plannedQuantity: 12,
+        plannedQuantity: 10,
         outputUnitSelection: 'people',
         customOutputUnit: null,
         useProjectSelfHelpGroupTotal: false,
-        outputTextOverride: 'Manually reviewed standard wording',
+        outputTextOverride: 'Keep this wording',
       },
     })
     state = projectDesignReducer(state, {
@@ -811,89 +809,132 @@ describe('project design selection and pathway configuration', () => {
       pathwayId: 'PW_X',
       intermediateOutcomeId: 'IO_1',
       activity: {
-        id: 'CUSTOM_SELECTED',
-        wording: 'Custom selected activity',
+        id: 'CUSTOM_1',
+        wording: 'Custom activity',
         projectDetails: 'Keep these notes',
         plannedQuantity: 3,
         outputUnitSelection: 'events',
         customOutputUnit: null,
         useProjectSelfHelpGroupTotal: false,
-        outputTextOverride: 'Manually reviewed custom wording',
+        outputTextOverride: 'Custom activity wording',
       },
-    })
-
-    expect(getSelectedActivityCount(state)).toBe(2)
-    expect(hasConfiguredActivityQuantityOrUnit(state)).toBe(true)
-    const applied = projectDesignReducer(state, {
-      type: 'setAllActivityOutputsToProjectSelfHelpGroups',
-    })
-    const output = configuration(applied)
-    expect(output.standardActivities).toHaveLength(1)
-    expect(output.projectSpecificActivities).toHaveLength(1)
-    expect(output.standardActivities[0]).toMatchObject({
-      frameworkActivityId: 'ACT_SELECTED',
-      plannedQuantity: 50,
-      outputUnitSelection: 'self-help-groups',
-      useProjectSelfHelpGroupTotal: true,
-      outputTextOverride: 'Manually reviewed standard wording',
-    })
-    expect(output.projectSpecificActivities[0]).toMatchObject({
-      id: 'CUSTOM_SELECTED',
-      projectDetails: 'Keep these notes',
-      plannedQuantity: 50,
-      outputUnitSelection: 'self-help-groups',
-      useProjectSelfHelpGroupTotal: true,
-      outputTextOverride: 'Manually reviewed custom wording',
-    })
-    expect(
-      output.standardActivities.some(
-        (activity) => activity.frameworkActivityId === 'ACT_UNSELECTED',
-      ),
-    ).toBe(false)
-  })
-
-  it('keeps bulk-linked quantities in sync and allows individual exceptions', () => {
-    let state = projectDesignReducer(addPathway(initialProjectDesignState), {
-      type: 'updateMetadata',
-      payload: { plannedSelfHelpGroupCount: 50 },
     })
     state = projectDesignReducer(state, {
       type: 'setStandardActivity',
       pathwayId: 'PW_X',
-      intermediateOutcomeId: 'IO_1',
-      frameworkActivityId: 'ACT_1',
+      intermediateOutcomeId: 'IO_2',
+      frameworkActivityId: 'ACT_OTHER_IO',
       selected: true,
-    })
-    state = projectDesignReducer(state, {
-      type: 'setAllActivityOutputsToProjectSelfHelpGroups',
-    })
-    state = projectDesignReducer(state, {
-      type: 'updateMetadata',
-      payload: { plannedSelfHelpGroupCount: 75 },
-    })
-    expect(configuration(state).standardActivities[0]).toMatchObject({
-      plannedQuantity: 75,
-      outputUnitSelection: 'self-help-groups',
-      useProjectSelfHelpGroupTotal: true,
-    })
-
-    state = projectDesignReducer(state, {
-      type: 'updateStandardActivityOutput',
-      pathwayId: 'PW_X',
-      intermediateOutcomeId: 'IO_1',
-      frameworkActivityId: 'ACT_1',
       output: {
-        plannedQuantity: 20,
-        outputUnitSelection: 'people',
+        plannedQuantity: 7,
+        outputUnitSelection: 'events',
         customOutputUnit: null,
         useProjectSelfHelpGroupTotal: false,
         outputTextOverride: null,
       },
     })
-    expect(configuration(state).standardActivities[0]).toMatchObject({
-      plannedQuantity: 20,
-      outputUnitSelection: 'people',
-      useProjectSelfHelpGroupTotal: false,
+
+    state = projectDesignReducer(state, {
+      type: 'setSuggestedActivitiesSelfHelpGroupOutputs',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      enabled: true,
     })
+    const first = state.projectPathways[0]!.intermediateOutcomeConfigurations[0]!
+    const second = state.projectPathways[0]!.intermediateOutcomeConfigurations[1]!
+    expect(first.standardActivities).toHaveLength(2)
+    expect(first.standardActivities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_1',
+          plannedQuantity: 50,
+          outputUnitSelection: 'self-help-groups',
+          useProjectSelfHelpGroupTotal: true,
+          outputTextOverride: 'Keep this wording',
+        }),
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_2',
+          plannedQuantity: 50,
+          outputUnitSelection: 'self-help-groups',
+          useProjectSelfHelpGroupTotal: true,
+        }),
+      ]),
+    )
+    expect(first.projectSpecificActivities).toEqual([
+      expect.objectContaining({
+        id: 'CUSTOM_1',
+        plannedQuantity: 3,
+        outputUnitSelection: 'events',
+        outputTextOverride: 'Custom activity wording',
+      }),
+    ])
+    expect(second.standardActivities).toEqual([
+      expect.objectContaining({
+        frameworkActivityId: 'ACT_OTHER_IO',
+        plannedQuantity: 7,
+        outputUnitSelection: 'events',
+      }),
+    ])
+
+    state = projectDesignReducer(state, {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 75 },
+    })
+    expect(
+      state.projectPathways[0]!.intermediateOutcomeConfigurations[0]!
+        .standardActivities,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_1',
+          plannedQuantity: 75,
+        }),
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_2',
+          plannedQuantity: 75,
+        }),
+      ]),
+    )
   })
+
+  it('removes SHG linkage without deselecting suggested activities', () => {
+    let state = projectDesignReducer(addPathway(initialProjectDesignState), {
+      type: 'updateMetadata',
+      payload: { plannedSelfHelpGroupCount: 50 },
+    })
+    state = projectDesignReducer(state, {
+      type: 'setSuggestedActivitiesSelfHelpGroupOutputs',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      enabled: true,
+    })
+    state = projectDesignReducer(state, {
+      type: 'setSuggestedActivitiesSelfHelpGroupOutputs',
+      pathwayId: 'PW_X',
+      intermediateOutcomeId: 'IO_1',
+      frameworkActivityIds: ['ACT_1', 'ACT_2'],
+      enabled: false,
+    })
+
+    expect(configuration(state).standardActivities).toHaveLength(2)
+    expect(configuration(state).standardActivities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_1',
+          plannedQuantity: 50,
+          outputUnitSelection: 'self-help-groups',
+          useProjectSelfHelpGroupTotal: false,
+        }),
+        expect.objectContaining({
+          frameworkActivityId: 'ACT_2',
+          plannedQuantity: 50,
+          outputUnitSelection: 'self-help-groups',
+          useProjectSelfHelpGroupTotal: false,
+        }),
+      ]),
+    )
+  })
+
 })

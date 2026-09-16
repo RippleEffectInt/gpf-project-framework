@@ -29,6 +29,7 @@ import {
   createActivityOutputPlanning,
   createCustomActivityOutputPlanning,
   formatActivityOutputSummary,
+  isPositiveInteger,
   normalizeActivityOutput,
 } from '../state/activityOutputs'
 import type { FrameworkData, IntermediateOutcome, SuggestedActivity } from '../types/framework'
@@ -593,7 +594,9 @@ function IncludeAllActivitiesCheckbox({
   suggestedActivities: SuggestedActivity[]
   configuration: ProjectIntermediateOutcomeConfiguration
 }) {
-  const { dispatch } = useProjectDesign()
+  const { dispatch, state } = useProjectDesign()
+  const plannedSelfHelpGroupCount =
+    state.metadata.plannedSelfHelpGroupCount
   const selectedCount = suggestedActivities.filter((activity) =>
     configuration.standardActivities.some(
       (selection) => selection.frameworkActivityId === activity.id,
@@ -602,42 +605,116 @@ function IncludeAllActivitiesCheckbox({
   const allSelected =
     suggestedActivities.length > 0 &&
     selectedCount === suggestedActivities.length
+  const selfHelpGroupMatchCount = suggestedActivities.filter((activity) => {
+    const selection = configuration.standardActivities.find(
+      (candidate) => candidate.frameworkActivityId === activity.id,
+    )
+    return (
+      selection?.outputUnitSelection === 'self-help-groups' &&
+      selection.useProjectSelfHelpGroupTotal === true
+    )
+  }).length
+  const allUseProjectSelfHelpGroupTotal =
+    suggestedActivities.length > 0 &&
+    selfHelpGroupMatchCount === suggestedActivities.length
+
+  const setSelfHelpGroupOutputs = (enabled: boolean) => {
+    if (!isPositiveInteger(plannedSelfHelpGroupCount)) return
+    if (enabled) {
+      const hasManualConfiguration = suggestedActivities.some((activity) => {
+        const selection = configuration.standardActivities.find(
+          (candidate) => candidate.frameworkActivityId === activity.id,
+        )
+        if (!selection) return false
+        const alreadyUsesBulkSetting =
+          selection.outputUnitSelection === 'self-help-groups' &&
+          selection.useProjectSelfHelpGroupTotal === true
+        return (
+          !alreadyUsesBulkSetting &&
+          (selection.plannedQuantity != null ||
+            selection.outputUnitSelection != null ||
+            Boolean(selection.customOutputUnit?.trim()))
+        )
+      })
+      if (
+        hasManualConfiguration &&
+        !window.confirm(
+          `Some selected activities already have output quantities or units configured. Replace those quantity/unit settings with ${plannedSelfHelpGroupCount} Self Help Groups? Custom output wording will be kept.`,
+        )
+      ) {
+        return
+      }
+    }
+    dispatch({
+      type: 'setSuggestedActivitiesSelfHelpGroupOutputs',
+      pathwayId,
+      intermediateOutcomeId,
+      frameworkActivityIds: suggestedActivities.map(
+        (activity) => activity.id,
+      ),
+      enabled,
+    })
+  }
 
   return (
-    <label
-      className={`checkbox-option include-all-activities ${className ?? ''}`.trim()}
+    <div
+      className={`activity-bulk-options ${className ?? ''}`.trim()}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <input
-        type="checkbox"
-        checked={allSelected}
-        ref={(element) => {
-          if (!element) return
-          element.indeterminate =
-            selectedCount > 0 && selectedCount < suggestedActivities.length
-        }}
-        onClick={(event) => event.stopPropagation()}
-        onChange={(event) =>
-          dispatch({
-            type: 'setSuggestedActivities',
-            pathwayId,
-            intermediateOutcomeId,
-            frameworkActivityIds: suggestedActivities.map(
-              (activity) => activity.id,
-            ),
-            selected: event.target.checked,
-            outputsByActivityId: Object.fromEntries(
-              suggestedActivities.map((activity) => [
-                activity.id,
-                createActivityOutputPlanning(),
-              ]),
-            ),
-          })
-        }
-      />
-      <span>Include all activities</span>
-    </label>
+      <label className="checkbox-option include-all-activities">
+        <input
+          type="checkbox"
+          checked={allSelected}
+          ref={(element) => {
+            if (!element) return
+            element.indeterminate =
+              selectedCount > 0 && selectedCount < suggestedActivities.length
+          }}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) =>
+            dispatch({
+              type: 'setSuggestedActivities',
+              pathwayId,
+              intermediateOutcomeId,
+              frameworkActivityIds: suggestedActivities.map(
+                (activity) => activity.id,
+              ),
+              selected: event.target.checked,
+              outputsByActivityId: Object.fromEntries(
+                suggestedActivities.map((activity) => [
+                  activity.id,
+                  createActivityOutputPlanning(),
+                ]),
+              ),
+            })
+          }
+        />
+        <span>Include all activities</span>
+      </label>
+      {isPositiveInteger(plannedSelfHelpGroupCount) && (
+        <label className="checkbox-option include-all-activities include-all-activities-shg">
+          <input
+            type="checkbox"
+            checked={allUseProjectSelfHelpGroupTotal}
+            ref={(element) => {
+              if (!element) return
+              element.indeterminate =
+                selfHelpGroupMatchCount > 0 &&
+                selfHelpGroupMatchCount < suggestedActivities.length
+            }}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) =>
+              setSelfHelpGroupOutputs(event.target.checked)
+            }
+          />
+          <span>
+            Include all activities and set outputs to{' '}
+            {plannedSelfHelpGroupCount} Self Help Groups
+          </span>
+        </label>
+      )}
+    </div>
   )
 }
 
