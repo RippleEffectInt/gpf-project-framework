@@ -1,4 +1,4 @@
-import type { ProjectStatus } from '../types/project'
+import type { OutputUnitSelection, ProjectStatus } from '../types/project'
 
 export const PROJECT_PERSISTENCE_SCHEMA_VERSION = 1 as const
 
@@ -17,12 +17,22 @@ export interface PersistedProjectSpecificIndicatorV1 {
 export interface PersistedStandardActivitySelectionV1 {
   frameworkActivityId: string
   projectNotes: string
+  plannedQuantity?: number | null
+  outputUnitSelection?: OutputUnitSelection
+  customOutputUnit?: string | null
+  useProjectSelfHelpGroupTotal?: boolean
+  outputTextOverride?: string | null
 }
 
 export interface PersistedProjectSpecificActivityV1 {
   id: string
   wording: string
   projectDetails: string
+  plannedQuantity?: number | null
+  outputUnitSelection?: OutputUnitSelection
+  customOutputUnit?: string | null
+  useProjectSelfHelpGroupTotal?: boolean
+  outputTextOverride?: string | null
 }
 
 export interface PersistedProjectInputV1 {
@@ -109,6 +119,7 @@ export interface PersistedProjectDesignV1 {
       plannedStartDate: string
       plannedEndDate: string
       description: string
+      plannedSelfHelpGroupCount?: number | null
     }
     selectedFinalOutcomeIds: string[]
     finalOutcomeSelectionSources: Record<string, 'direct' | 'related-pathway'>

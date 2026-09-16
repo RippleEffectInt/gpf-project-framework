@@ -16,6 +16,7 @@ const validMetadata = {
   plannedStartDate: '2027-03',
   plannedEndDate: '2027-11',
   description: 'A project to strengthen local seed markets.',
+  plannedSelfHelpGroupCount: null,
 }
 
 describe('potential implementation month and year', () => {

@@ -6,6 +6,11 @@ import {
   SAVED_SESSION_MESSAGE,
   SessionSaveFeedback,
 } from './SessionSaveFeedback'
+import { PlannedOutputEditor } from './PlannedOutputEditor'
+import {
+  createCustomActivityOutputPlanning,
+  normalizeActivityOutput,
+} from '../state/activityOutputs'
 import type {
   ProjectInput,
   ProjectSpecificActivity,
@@ -176,7 +181,7 @@ export function CustomActivitiesEditor({
   intermediateOutcomeId: string
   activities: ProjectSpecificActivity[]
 }) {
-  const { dispatch } = useProjectDesign()
+  const { dispatch, state } = useProjectDesign()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [wording, setWording] = useState('')
   const [projectDetails, setProjectDetails] = useState('')
@@ -202,6 +207,7 @@ export function CustomActivitiesEditor({
         id: createLocalId('custom-act'),
         wording: wording.trim(),
         projectDetails: projectDetails.trim(),
+        ...createCustomActivityOutputPlanning(),
       },
     })
     setFeedback(ADDED_SESSION_MESSAGE)
@@ -232,6 +238,19 @@ export function CustomActivitiesEditor({
                 <strong>Project-specific activity</strong>
                 <p>{activity.wording}</p>
                 {activity.projectDetails && <small>{activity.projectDetails}</small>}
+                <PlannedOutputEditor
+                  planning={normalizeActivityOutput(activity)}
+                  plannedSelfHelpGroupCount={
+                    state.metadata.plannedSelfHelpGroupCount
+                  }
+                  onChange={(output) =>
+                    dispatch({
+                      type: 'updateCustomIoActivity',
+                      intermediateOutcomeId,
+                      activity: { ...activity, ...output },
+                    })
+                  }
+                />
               </div>
               <div className="inline-actions">
                 <button
@@ -272,10 +291,12 @@ export function CustomActivitiesEditor({
               const value = event.target.value
               setWording(value)
               if (editingId) {
+                const current = activities.find((item) => item.id === editingId)
                 dispatch({
                   type: 'updateCustomIoActivity',
                   intermediateOutcomeId,
                   activity: {
+                    ...current,
                     id: editingId,
                     wording: value,
                     projectDetails,
@@ -295,10 +316,16 @@ export function CustomActivitiesEditor({
               const value = event.target.value
               setProjectDetails(value)
               if (editingId) {
+                const current = activities.find((item) => item.id === editingId)
                 dispatch({
                   type: 'updateCustomIoActivity',
                   intermediateOutcomeId,
-                  activity: { id: editingId, wording, projectDetails: value },
+                  activity: {
+                    ...current,
+                    id: editingId,
+                    wording,
+                    projectDetails: value,
+                  },
                 })
               }
             }}

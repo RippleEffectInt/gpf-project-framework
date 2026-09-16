@@ -83,6 +83,7 @@ export interface SuggestedActivity {
   readonly text: string
   readonly sortOrder: number
   readonly active: boolean
+  readonly outputPhrase?: string | null
 }
 
 export interface FrameworkInputCategory {

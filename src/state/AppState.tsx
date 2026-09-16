@@ -29,6 +29,10 @@ import { isMetadataSyncRequiredResult } from '../persistence/types'
 import type { FrameworkData } from '../types/framework'
 import type { ProjectDesignState, ProjectStatus } from '../types/project'
 import {
+  CURRENT_FRAMEWORK,
+  getFrameworkByVersion,
+} from '../data/frameworkRegistry'
+import {
   initialProjectDesignState,
   projectDesignReducer,
   type ProjectDesignAction,
@@ -39,6 +43,7 @@ interface FrameworkContextValue {
   loading: boolean
   error: string | null
   retry: () => void
+  selectFrameworkVersion: (frameworkVersion: string) => boolean
 }
 
 const FrameworkContext = createContext<FrameworkContextValue | null>(null)
@@ -76,9 +81,24 @@ export function FrameworkProvider({
     fetchFramework()
   }, [fetchFramework])
 
+  const selectFrameworkVersion = useCallback((frameworkVersion: string) => {
+    const selected = getFrameworkByVersion(frameworkVersion)
+    if (!selected) return false
+    setData(selected)
+    setLoading(false)
+    setError(null)
+    return true
+  }, [])
+
   const value = useMemo(
-    () => ({ data, loading, error, retry }),
-    [data, error, loading, retry],
+    () => ({
+      data,
+      loading,
+      error,
+      retry,
+      selectFrameworkVersion,
+    }),
+    [data, error, loading, retry, selectFrameworkVersion],
   )
   return (
     <FrameworkContext.Provider value={value}>
@@ -161,7 +181,7 @@ export function ProjectDesignProvider({
   initialState = initialProjectDesignState,
   repository = getProjectRepository(),
 }: ProjectDesignProviderProps) {
-  const { data: framework } = useFramework()
+  const { data: framework, selectFrameworkVersion } = useFramework()
   const [state, reducerDispatch] = useReducer(
     projectDesignReducer,
     initialState,
@@ -196,13 +216,18 @@ export function ProjectDesignProvider({
 
   const applyRecord = useCallback(
     (record: ProjectRecord, preserveRecovery = false) => {
-      if (!framework) {
+      const exactFramework =
+        record.project.frameworkVersion === framework?.frameworkVersion
+          ? framework
+          : getFrameworkByVersion(record.project.frameworkVersion)
+      if (!exactFramework) {
         throw new ProjectPersistenceError(
           'configuration',
-          'The framework must finish loading before a project can be opened.',
+          'The exact framework version for this project is unavailable.',
         )
       }
-      const loaded = loadPersistedProject(record.project, framework)
+      const loaded = loadPersistedProject(record.project, exactFramework)
+      selectFrameworkVersion(exactFramework.frameworkVersion)
       reducerDispatch({
         type: 'replaceState',
         state: { ...loaded.design, lastSavedAt: record.modifiedAt },
@@ -220,7 +245,7 @@ export function ProjectDesignProvider({
       setMetadataSyncState(null)
       if (!preserveRecovery) setRecoveryState(null)
     },
-    [framework],
+    [framework, selectFrameworkVersion],
   )
 
   const saveProject = useCallback(async (): Promise<boolean> => {
@@ -346,6 +371,7 @@ export function ProjectDesignProvider({
   }, [activeProject, metadataSyncState, repository])
 
   const startNewProject = useCallback(() => {
+    selectFrameworkVersion(CURRENT_FRAMEWORK.frameworkVersion)
     reducerDispatch({ type: 'reset' })
     revisionRef.current = 0
     setActiveProject(null)
@@ -354,7 +380,7 @@ export function ProjectDesignProvider({
     setRecoveryState(null)
     setMetadataSyncState(null)
     setPathwayNavigationFeedback(null)
-  }, [])
+  }, [selectFrameworkVersion])
 
   const openProject = useCallback(
     async (id: string) => {

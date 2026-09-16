@@ -53,6 +53,7 @@ function relatedPathwayState(): ProjectDesignState {
       plannedStartDate: '2026-10',
       plannedEndDate: '2028-09',
       description: 'A project used to verify persistence.',
+      plannedSelfHelpGroupCount: null,
     },
     lastSavedAt: '2026-09-14T20:00:00.000Z',
   }
@@ -102,6 +103,11 @@ function customInnovation(): CustomInnovationOutcome {
               id: 'CUSTOM_ACTIVITY',
               wording: 'Coach partners',
               projectDetails: 'Provide practical support.',
+              plannedQuantity: null,
+              outputUnitSelection: null,
+              customOutputUnit: null,
+              useProjectSelfHelpGroupTotal: false,
+              outputTextOverride: null,
             },
           ],
           inputs: [
@@ -188,6 +194,11 @@ describe('project persistence serialization', () => {
       activityIds.map((frameworkActivityId) => ({
         frameworkActivityId,
         projectNotes: '',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
       })),
     )
     expect(loadedActivities).toEqual(persisted)

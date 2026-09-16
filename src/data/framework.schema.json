@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project Framework dataset",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "frameworkVersion",
+    "status",
+    "publishedAt",
+    "thematicAreas",
+    "impacts",
+    "finalOutcomes",
+    "finalOutcomeImpactLinks",
+    "pathways",
+    "finalOutcomePathwayLinks",
+    "intermediateOutcomes",
+    "indicators",
+    "suggestedActivities",
+    "inputCategories"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "frameworkVersion": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "publishedAt": {
+      "type": "string"
+    },
+    "suggestedActivities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "intermediateOutcomeId",
+          "text",
+          "sortOrder",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "intermediateOutcomeId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "outputPhrase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

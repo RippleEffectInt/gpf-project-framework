@@ -184,9 +184,19 @@ fails, the UI reports that the design was saved and offers a metadata-only
 retry. The reusable server storage contract also supports idempotent create,
 orphan reporting/cleanup and rebuilding metadata from authoritative JSON.
 
-The normalized reference file is:
+The normalized reference files are:
 
-`src/data/framework-v1.0-normalized.json`
+- Historic: `src/data/framework-v1.0-normalized.json` (`PF-1.0-NORMALIZED-PR1`, schema `1.2`)
+- Current proposed source: `src/data/framework-v1.1-output-phrase-reviewed-ambiguous.json` (`PF-1.1-OUTPUT-PHRASE-DRAFT`, schema `1.3`)
+- Phrase review: `src/data/framework-v1.1-output-phrase-review-updated.csv`
+
+Saved projects resolve against the exact framework version stored on the
+document. The proposed dataset adds only optional `outputPhrase` metadata and
+does not assign or infer output units. Existing activity text, sort order,
+Intermediate Outcome relationships, pathway relationships and framework IDs
+are unchanged. `scripts/import-output-phrase-framework.mjs` validates these
+protected fields when importing the reviewed sources. The framework JSON
+schema is `src/data/framework.schema.json`.
 
 It remains read-only application reference data. Governance and provenance
 fields in that source are intentionally not exposed in the project-design UI.

@@ -14,6 +14,7 @@ import type {
   PathwayIntermediateOutcomeSeed,
   PathwayRelationshipType,
 } from '../types/project'
+import { CURRENT_FRAMEWORK } from '../data/frameworkRegistry'
 
 export const COMMUNITY_EXTENSION_PATHWAY_ID = 'PW_028'
 
@@ -28,17 +29,26 @@ function isFrameworkData(value: unknown): value is FrameworkData {
     Array.isArray(candidate.finalOutcomePathwayLinks) &&
     Array.isArray(candidate.intermediateOutcomes) &&
     Array.isArray(candidate.indicators) &&
-    Array.isArray(candidate.suggestedActivities)
+    Array.isArray(candidate.suggestedActivities) &&
+    candidate.suggestedActivities.every(
+      (activity) =>
+        typeof activity.id === 'string' &&
+        typeof activity.text === 'string' &&
+        typeof activity.intermediateOutcomeId === 'string' &&
+        typeof activity.sortOrder === 'number' &&
+        typeof activity.active === 'boolean' &&
+        (activity.outputPhrase === undefined ||
+          activity.outputPhrase === null ||
+          typeof activity.outputPhrase === 'string'),
+    )
   )
 }
 
 export async function loadFramework(): Promise<FrameworkData> {
-  const module = await import('../data/framework-v1.0-normalized.json')
-  const data: unknown = module.default
-  if (!isFrameworkData(data)) {
-    throw new Error('The local framework file does not match the expected schema.')
+  if (!isFrameworkData(CURRENT_FRAMEWORK)) {
+    throw new Error('The current framework file does not match the expected schema.')
   }
-  return data
+  return CURRENT_FRAMEWORK
 }
 
 export function getActiveThematicAreas(data: FrameworkData): ThematicArea[] {

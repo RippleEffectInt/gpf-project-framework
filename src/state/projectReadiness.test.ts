@@ -56,6 +56,7 @@ const completeMetadata = {
   plannedStartDate: '2026-01',
   plannedEndDate: '2026-12',
   description: 'A project to strengthen local seed markets.',
+  plannedSelfHelpGroupCount: null,
 }
 
 function completeCustom(): CustomInnovationOutcome {

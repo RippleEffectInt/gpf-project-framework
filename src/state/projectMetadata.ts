@@ -3,7 +3,9 @@ import { isYearMonth } from './projectDates'
 
 export type ProjectMetadataErrors = Partial<Record<keyof ProjectMetadata, string>>
 
-const requiredMetadataFields: Array<keyof ProjectMetadata> = [
+const requiredMetadataFields: Array<
+  Exclude<keyof ProjectMetadata, 'plannedSelfHelpGroupCount'>
+> = [
   'title',
   'country',
   'donor',
@@ -37,6 +39,14 @@ export function getProjectMetadataErrors(
   ) {
     errors.plannedEndDate =
       'Potential End must not be earlier than Potential Start.'
+  }
+  if (
+    metadata.plannedSelfHelpGroupCount != null &&
+    (!Number.isInteger(metadata.plannedSelfHelpGroupCount) ||
+      metadata.plannedSelfHelpGroupCount < 1)
+  ) {
+    errors.plannedSelfHelpGroupCount =
+      'Enter a whole number greater than zero.'
   }
   return errors
 }

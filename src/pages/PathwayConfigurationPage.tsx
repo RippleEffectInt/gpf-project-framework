@@ -22,7 +22,15 @@ import {
   getPathwayConfigurationStatus,
   intermediateOutcomeHasRequiredActivity,
 } from '../state/projectDesign'
-import type { FrameworkData, IntermediateOutcome } from '../types/framework'
+import { PlannedOutputEditor } from '../components/PlannedOutputEditor'
+import {
+  activityOutputSummary,
+  createActivityOutputPlanning,
+  createCustomActivityOutputPlanning,
+  formatActivityOutputSummary,
+  normalizeActivityOutput,
+} from '../state/activityOutputs'
+import type { FrameworkData, IntermediateOutcome, SuggestedActivity } from '../types/framework'
 import type {
   ConfigurationStatus,
   ProjectInput,
@@ -242,7 +250,7 @@ function ProjectSpecificActivitiesEditor({
   intermediateOutcomeId: string
   activities: ProjectSpecificActivity[]
 }) {
-  const { dispatch } = useProjectDesign()
+  const { dispatch, state } = useProjectDesign()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [wording, setWording] = useState('')
   const [projectDetails, setProjectDetails] = useState('')
@@ -265,6 +273,7 @@ function ProjectSpecificActivitiesEditor({
       id: createLocalId('activity'),
       wording: wording.trim(),
       projectDetails: projectDetails.trim(),
+      ...createCustomActivityOutputPlanning(),
     }
     dispatch({
       type: 'addProjectSpecificActivity',
@@ -295,6 +304,23 @@ function ProjectSpecificActivitiesEditor({
                 {activity.projectDetails && (
                   <small>{activity.projectDetails}</small>
                 )}
+                <PlannedOutputEditor
+                  planning={normalizeActivityOutput(activity)}
+                  plannedSelfHelpGroupCount={
+                    state.metadata.plannedSelfHelpGroupCount
+                  }
+                  onChange={(output) =>
+                    dispatch({
+                      type: 'updateProjectSpecificActivity',
+                      pathwayId,
+                      intermediateOutcomeId,
+                      activity: {
+                        ...activity,
+                        ...output,
+                      },
+                    })
+                  }
+                />
               </div>
               <div className="inline-actions">
                 <button
@@ -336,11 +362,13 @@ function ProjectSpecificActivitiesEditor({
               const value = event.target.value
               setWording(value)
               if (editingId) {
+                const current = activities.find((item) => item.id === editingId)
                 dispatch({
                   type: 'updateProjectSpecificActivity',
                   pathwayId,
                   intermediateOutcomeId,
                   activity: {
+                    ...current,
                     id: editingId,
                     wording: value,
                     projectDetails,
@@ -360,11 +388,17 @@ function ProjectSpecificActivitiesEditor({
               const value = event.target.value
               setProjectDetails(value)
               if (editingId) {
+                const current = activities.find((item) => item.id === editingId)
                 dispatch({
                   type: 'updateProjectSpecificActivity',
                   pathwayId,
                   intermediateOutcomeId,
-                  activity: { id: editingId, wording, projectDetails: value },
+                  activity: {
+                    ...current,
+                    id: editingId,
+                    wording,
+                    projectDetails: value,
+                  },
                 })
               }
             }}
@@ -558,7 +592,7 @@ function IncludeAllActivitiesCheckbox({
   className?: string
   pathwayId: string
   intermediateOutcomeId: string
-  suggestedActivities: { id: string }[]
+  suggestedActivities: SuggestedActivity[]
   configuration: ProjectIntermediateOutcomeConfiguration
 }) {
   const { dispatch } = useProjectDesign()
@@ -595,6 +629,12 @@ function IncludeAllActivitiesCheckbox({
               (activity) => activity.id,
             ),
             selected: event.target.checked,
+            outputsByActivityId: Object.fromEntries(
+              suggestedActivities.map((activity) => [
+                activity.id,
+                createActivityOutputPlanning(),
+              ]),
+            ),
           })
         }
       />
@@ -614,7 +654,9 @@ function IntermediateOutcomeConfigurationCard({
   outcome: IntermediateOutcome
   configuration: ProjectIntermediateOutcomeConfiguration
 }) {
-  const { dispatch } = useProjectDesign()
+  const { dispatch, state } = useProjectDesign()
+  const plannedSelfHelpGroupCount =
+    state.metadata.plannedSelfHelpGroupCount
   const primaryIndicator = getPrimaryIndicatorForIntermediateOutcome(
     data,
     outcome.id,
@@ -630,6 +672,18 @@ function IntermediateOutcomeConfigurationCard({
   const activityCount =
     configuration.standardActivities.length +
     configuration.projectSpecificActivities.length
+  const outputSummary = formatActivityOutputSummary(
+    activityOutputSummary(
+      configuration.standardActivities,
+      configuration.projectSpecificActivities,
+      new Map(
+        suggestedActivities.map((activity) => [
+          activity.id,
+          activity.outputPhrase ?? null,
+        ]),
+      ),
+    ),
+  )
   const hasStarted =
     configuration.reviewed ||
     configuration.additionalIndicators.length > 0 ||
@@ -688,6 +742,7 @@ function IntermediateOutcomeConfigurationCard({
                   ? 'No inputs added'
                   : `${configuration.inputs.length} inputs`}
               </span>
+              {outputSummary && <span>{outputSummary}</span>}
             </div>
             {suggestedActivities.length > 0 && !open && (
               <IncludeAllActivitiesCheckbox
@@ -823,24 +878,43 @@ function IntermediateOutcomeConfigurationCard({
                               intermediateOutcomeId: outcome.id,
                               frameworkActivityId: activity.id,
                               selected: event.target.checked,
+                              output: createActivityOutputPlanning(),
                             })
                           }
                         />
                         <span>{activity.text}</span>
                       </label>
                       {selection && (
-                        <OptionalActivityNotes
-                          value={selection.projectNotes}
-                          onChange={(projectNotes) =>
-                            dispatch({
-                              type: 'updateStandardActivityNotes',
-                              pathwayId,
-                              intermediateOutcomeId: outcome.id,
-                              frameworkActivityId: activity.id,
-                              projectNotes,
-                            })
-                          }
-                        />
+                        <>
+                          <OptionalActivityNotes
+                            value={selection.projectNotes}
+                            onChange={(projectNotes) =>
+                              dispatch({
+                                type: 'updateStandardActivityNotes',
+                                pathwayId,
+                                intermediateOutcomeId: outcome.id,
+                                frameworkActivityId: activity.id,
+                                projectNotes,
+                              })
+                            }
+                          />
+                          <PlannedOutputEditor
+                            planning={normalizeActivityOutput(selection)}
+                            activity={activity}
+                            plannedSelfHelpGroupCount={
+                              plannedSelfHelpGroupCount
+                            }
+                            onChange={(output) =>
+                              dispatch({
+                                type: 'updateStandardActivityOutput',
+                                pathwayId,
+                                intermediateOutcomeId: outcome.id,
+                                frameworkActivityId: activity.id,
+                                output,
+                              })
+                            }
+                          />
+                        </>
                       )}
                     </div>
                   )

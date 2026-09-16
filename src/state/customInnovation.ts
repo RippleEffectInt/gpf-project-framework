@@ -8,6 +8,7 @@ import type {
   ProjectSpecificActivity,
   ProjectSpecificIndicator,
 } from '../types/project'
+import { emptyActivityOutputPlanning } from './activityOutputs'
 
 export function createCustomPrimaryIndicator(
   id: string,
@@ -394,7 +395,10 @@ export function applyCustomInnovationAction(
     case 'addCustomIoActivity':
       return updateCustomIo(state, action.intermediateOutcomeId, (outcome) => ({
         ...outcome,
-        activities: [...outcome.activities, action.activity],
+        activities: [
+          ...outcome.activities,
+          { ...emptyActivityOutputPlanning, ...action.activity },
+        ],
       }))
 
     case 'updateCustomIoActivity':

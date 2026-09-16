@@ -145,6 +145,57 @@ export function ProjectDetailsPage() {
           )}
         </label>
         <label className="full-width">
+          <span>Planned number of Self Help Groups</span>
+          <input
+            inputMode="numeric"
+            value={
+              state.metadata.plannedSelfHelpGroupCount == null
+                ? ''
+                : String(state.metadata.plannedSelfHelpGroupCount)
+            }
+            onChange={(event) => {
+              const raw = event.target.value.trim()
+              if (!raw) {
+                dispatch({
+                  type: 'updateMetadata',
+                  payload: { plannedSelfHelpGroupCount: null },
+                })
+                setErrors((current) => ({
+                  ...current,
+                  plannedSelfHelpGroupCount: undefined,
+                }))
+                return
+              }
+              if (!/^\d+$/.test(raw) || Number(raw) < 1) {
+                setErrors((current) => ({
+                  ...current,
+                  plannedSelfHelpGroupCount:
+                    'Enter a whole number greater than zero.',
+                }))
+                return
+              }
+              dispatch({
+                type: 'updateMetadata',
+                payload: { plannedSelfHelpGroupCount: Number(raw) },
+              })
+              setErrors((current) => ({
+                ...current,
+                plannedSelfHelpGroupCount: undefined,
+              }))
+            }}
+            aria-invalid={Boolean(errors.plannedSelfHelpGroupCount)}
+          />
+          {errors.plannedSelfHelpGroupCount && (
+            <small className="field-error">
+              {errors.plannedSelfHelpGroupCount}
+            </small>
+          )}
+          <small>
+            Used to help calculate planned outputs where an activity applies
+            to Self Help Groups.
+          </small>
+        </label>
+        <label className="full-width">
           <span>Framework version</span>
           <input
             readOnly
@@ -154,7 +205,7 @@ export function ProjectDetailsPage() {
             className="read-only-field"
           />
           <small>
-            Set automatically from the approved reference framework.
+            Set automatically from the project framework dataset.
           </small>
         </label>
 

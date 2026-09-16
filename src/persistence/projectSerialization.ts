@@ -1,10 +1,17 @@
 import type { FrameworkData } from '../types/framework'
 import { inputCategories } from '../data/inputCategories'
+import { getFrameworkByVersion } from '../data/frameworkRegistry'
 import type {
+  ActivityOutputPlanning,
   CustomInnovationOutcome,
   ProjectDesignState,
   ProjectStatus,
 } from '../types/project'
+import {
+  emptyActivityOutputPlanning,
+  isOutputUnitSelection,
+  normalizeActivityOutput,
+} from '../state/activityOutputs'
 import { ProjectPersistenceError } from './errors'
 import {
   PROJECT_PERSISTENCE_SCHEMA_VERSION,
@@ -51,6 +58,54 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || isString(value)
 }
 
+function isOptionalPositiveInteger(
+  value: unknown,
+): value is number | null | undefined {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'number' && Number.isInteger(value) && value > 0)
+  )
+}
+
+function isOptionalBoolean(value: unknown): value is boolean | undefined {
+  return value === undefined || typeof value === 'boolean'
+}
+
+function isOptionalNullableString(
+  value: unknown,
+): value is string | null | undefined {
+  return value === undefined || value === null || isString(value)
+}
+
+function readOutputPlanning(
+  value: Partial<ActivityOutputPlanning>,
+): ActivityOutputPlanning {
+  return {
+    plannedQuantity: value.plannedQuantity ?? null,
+    outputUnitSelection: isOutputUnitSelection(value.outputUnitSelection)
+      ? value.outputUnitSelection
+      : null,
+    customOutputUnit: value.customOutputUnit ?? null,
+    useProjectSelfHelpGroupTotal:
+      value.useProjectSelfHelpGroupTotal === true,
+    outputTextOverride: value.outputTextOverride ?? null,
+  }
+}
+
+function serializeOutputPlanning(
+  planning: ActivityOutputPlanning,
+): ActivityOutputPlanning {
+  return {
+    plannedQuantity: planning.plannedQuantity,
+    outputUnitSelection: planning.outputUnitSelection,
+    customOutputUnit: planning.customOutputUnit,
+    useProjectSelfHelpGroupTotal:
+      planning.useProjectSelfHelpGroupTotal,
+    outputTextOverride: planning.outputTextOverride,
+  }
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString)
 }
@@ -87,7 +142,13 @@ function isStandardActivity(
   return (
     isRecord(value) &&
     isString(value.frameworkActivityId) &&
-    isString(value.projectNotes)
+    isString(value.projectNotes) &&
+    isOptionalPositiveInteger(value.plannedQuantity) &&
+    (value.outputUnitSelection === undefined ||
+      isOutputUnitSelection(value.outputUnitSelection)) &&
+    isOptionalNullableString(value.customOutputUnit) &&
+    isOptionalBoolean(value.useProjectSelfHelpGroupTotal) &&
+    isOptionalNullableString(value.outputTextOverride)
   )
 }
 
@@ -98,7 +159,13 @@ function isProjectSpecificActivity(
     isRecord(value) &&
     isString(value.id) &&
     isString(value.wording) &&
-    isString(value.projectDetails)
+    isString(value.projectDetails) &&
+    isOptionalPositiveInteger(value.plannedQuantity) &&
+    (value.outputUnitSelection === undefined ||
+      isOutputUnitSelection(value.outputUnitSelection)) &&
+    isOptionalNullableString(value.customOutputUnit) &&
+    isOptionalBoolean(value.useProjectSelfHelpGroupTotal) &&
+    isOptionalNullableString(value.outputTextOverride)
   )
 }
 
@@ -235,6 +302,9 @@ export function isPersistedProjectDesignV1(
     isString(design.metadata.plannedStartDate) &&
     isString(design.metadata.plannedEndDate) &&
     isString(design.metadata.description) &&
+    isOptionalPositiveInteger(
+      design.metadata.plannedSelfHelpGroupCount,
+    ) &&
     isStringArray(design.selectedFinalOutcomeIds) &&
     isSelectionSources(design.finalOutcomeSelectionSources) &&
     Array.isArray(design.projectPathways) &&
@@ -295,6 +365,18 @@ function serializeProjectActivity(
     id: activity.id,
     wording: activity.wording,
     projectDetails: activity.projectDetails,
+    ...serializeOutputPlanning({
+      plannedQuantity: activity.plannedQuantity ?? null,
+      outputUnitSelection: isOutputUnitSelection(
+        activity.outputUnitSelection,
+      )
+        ? activity.outputUnitSelection
+        : null,
+      customOutputUnit: activity.customOutputUnit ?? null,
+      useProjectSelfHelpGroupTotal:
+        activity.useProjectSelfHelpGroupTotal === true,
+      outputTextOverride: activity.outputTextOverride ?? null,
+    }),
   }
 }
 
@@ -377,6 +459,8 @@ export function serializeProject({
         plannedStartDate: design.metadata.plannedStartDate,
         plannedEndDate: design.metadata.plannedEndDate,
         description: design.metadata.description,
+        plannedSelfHelpGroupCount:
+          design.metadata.plannedSelfHelpGroupCount,
       },
       selectedFinalOutcomeIds: [...design.selectedFinalOutcomeIds],
       finalOutcomeSelectionSources: {
@@ -401,6 +485,7 @@ export function serializeProject({
               (activity) => ({
                 frameworkActivityId: activity.frameworkActivityId,
                 projectNotes: activity.projectNotes,
+                ...serializeOutputPlanning(normalizeActivityOutput(activity)),
               }),
             ),
             projectSpecificActivities:
@@ -512,13 +597,19 @@ export function loadPersistedProject(
   framework: FrameworkData,
 ): LoadedPersistedProject {
   const document = parsePersistedProjectDocument(raw)
+  const resolvedFramework =
+    document.frameworkVersion === framework.frameworkVersion &&
+    document.frameworkSchemaVersion === framework.schemaVersion
+      ? framework
+      : getFrameworkByVersion(document.frameworkVersion)
   if (
-    document.frameworkVersion !== framework.frameworkVersion ||
-    document.frameworkSchemaVersion !== framework.schemaVersion
+    !resolvedFramework ||
+    document.frameworkVersion !== resolvedFramework.frameworkVersion ||
+    document.frameworkSchemaVersion !== resolvedFramework.schemaVersion
   ) {
     throw new ProjectPersistenceError('framework-incompatible')
   }
-  assertFrameworkReferences(document, framework)
+  assertFrameworkReferences(document, resolvedFramework)
 
   return {
     document,
@@ -532,6 +623,8 @@ export function loadPersistedProject(
         plannedStartDate: document.design.metadata.plannedStartDate,
         plannedEndDate: document.design.metadata.plannedEndDate,
         description: document.design.metadata.description,
+        plannedSelfHelpGroupCount:
+          document.design.metadata.plannedSelfHelpGroupCount ?? null,
       },
       selectedFinalOutcomeIds: [...document.design.selectedFinalOutcomeIds],
       finalOutcomeSelectionSources: {
@@ -555,11 +648,18 @@ export function loadPersistedProject(
                 ...indicator,
               })),
             standardActivities: configuration.standardActivities.map(
-              (activity) => ({ ...activity }),
+              (activity) => ({
+                frameworkActivityId: activity.frameworkActivityId,
+                projectNotes: activity.projectNotes,
+                ...emptyActivityOutputPlanning,
+                ...readOutputPlanning(activity),
+              }),
             ),
             projectSpecificActivities:
               configuration.projectSpecificActivities.map((activity) => ({
                 ...activity,
+                ...emptyActivityOutputPlanning,
+                ...readOutputPlanning(activity),
               })),
             inputs: configuration.inputs.map((input) => ({ ...input })),
             reviewed: configuration.reviewed,
@@ -586,7 +686,9 @@ export function loadPersistedProject(
                       (indicator) => ({ ...indicator }),
                     ),
                     activities: outcome.activities.map((activity) => ({
+                      ...emptyActivityOutputPlanning,
                       ...activity,
+                      ...readOutputPlanning(activity),
                     })),
                     inputs: outcome.inputs.map((input) => ({ ...input })),
                   }),

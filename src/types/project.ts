@@ -7,6 +7,7 @@ export interface ProjectMetadata {
   plannedStartDate: string
   plannedEndDate: string
   description: string
+  plannedSelfHelpGroupCount: number | null
 }
 
 export type PathwayRelationshipType = 'primary' | 'related'
@@ -24,15 +25,61 @@ export interface ProjectSpecificIndicator {
   measurementNotes: string
 }
 
+export type OutputUnitSelection =
+  | null
+  | 'no-unit'
+  | 'linkages'
+  | 'people'
+  | 'schemes'
+  | 'platforms'
+  | 'events'
+  | 'organisations'
+  | 'facilities'
+  | 'businesses'
+  | 'processes'
+  | 'service-providers'
+  | 'local-infrastructure'
+  | 'standards'
+  | 'providers'
+  | 'self-help-groups'
+  | 'enterprises'
+  | 'communities'
+  | 'demonstration-plots'
+  | 'households'
+  | 'committees'
+  | 'ripple-effect'
+  | 'pfts'
+  | 'community-workshops'
+  | 'farmer-field-schools'
+  | 'other'
+
+export interface ActivityOutputPlanning {
+  plannedQuantity: number | null
+  outputUnitSelection: OutputUnitSelection
+  customOutputUnit: string | null
+  useProjectSelfHelpGroupTotal: boolean
+  outputTextOverride: string | null
+}
+
 export interface StandardActivitySelection {
   frameworkActivityId: string
   projectNotes: string
+  plannedQuantity?: number | null
+  outputUnitSelection?: OutputUnitSelection
+  customOutputUnit?: string | null
+  useProjectSelfHelpGroupTotal?: boolean
+  outputTextOverride?: string | null
 }
 
 export interface ProjectSpecificActivity {
   id: string
   wording: string
   projectDetails: string
+  plannedQuantity?: number | null
+  outputUnitSelection?: OutputUnitSelection
+  customOutputUnit?: string | null
+  useProjectSelfHelpGroupTotal?: boolean
+  outputTextOverride?: string | null
 }
 
 export interface ProjectInput {

@@ -190,7 +190,15 @@ describe('project design selection and pathway configuration', () => {
     })
 
     expect(configuration(selected).standardActivities).toEqual([
-      { frameworkActivityId: 'ACT_1', projectNotes: '' },
+      {
+        frameworkActivityId: 'ACT_1',
+        projectNotes: '',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
     ])
     expect(configuration(deselected).standardActivities).toEqual([])
   })
@@ -236,12 +244,44 @@ describe('project design selection and pathway configuration', () => {
     })
 
     expect(configuration(selected).standardActivities).toEqual([
-      { frameworkActivityId: 'ACT_1', projectNotes: '' },
-      { frameworkActivityId: 'ACT_2', projectNotes: '' },
+      {
+        frameworkActivityId: 'ACT_1',
+        projectNotes: '',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
+      {
+        frameworkActivityId: 'ACT_2',
+        projectNotes: '',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
     ])
     expect(configuration(reselected).standardActivities).toEqual([
-      { frameworkActivityId: 'ACT_1', projectNotes: 'Keep these notes' },
-      { frameworkActivityId: 'ACT_2', projectNotes: '' },
+      {
+        frameworkActivityId: 'ACT_1',
+        projectNotes: 'Keep these notes',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
+      {
+        frameworkActivityId: 'ACT_2',
+        projectNotes: '',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
+      },
     ])
     expect(configuration(cleared).standardActivities).toEqual([])
     expect(configuration(cleared).projectSpecificActivities).toEqual([
@@ -249,6 +289,11 @@ describe('project design selection and pathway configuration', () => {
         id: 'custom-act',
         wording: 'Keep this custom activity',
         projectDetails: 'Local detail',
+        plannedQuantity: null,
+        outputUnitSelection: null,
+        customOutputUnit: null,
+        useProjectSelfHelpGroupTotal: false,
+        outputTextOverride: null,
       },
     ])
   })
@@ -272,6 +317,11 @@ describe('project design selection and pathway configuration', () => {
     expect(configuration(withNotes).standardActivities[0]).toEqual({
       frameworkActivityId: 'ACT_1',
       projectNotes: 'Use two facilitators',
+      plannedQuantity: null,
+      outputUnitSelection: null,
+      customOutputUnit: null,
+      useProjectSelfHelpGroupTotal: false,
+      outputTextOverride: null,
     })
     expect(configuration(withNotes).standardActivities[0]).not.toHaveProperty(
       'wording',

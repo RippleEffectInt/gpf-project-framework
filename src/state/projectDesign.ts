@@ -1,4 +1,5 @@
 import type {
+  ActivityOutputPlanning,
   ConfigurationStatus,
   FinalOutcomeSelectionSource,
   PathwayIntermediateOutcomeSeed,
@@ -9,13 +10,17 @@ import type {
   ProjectPathway,
   ProjectSpecificActivity,
   ProjectSpecificIndicator,
-  StandardActivitySelection,
 } from '../types/project'
 import type { PathwayRelationshipType } from '../types/project'
 import {
   applyCustomInnovationAction,
   type CustomInnovationAction,
 } from './customInnovation'
+import {
+  createStandardActivitySelection,
+  emptyActivityOutputPlanning,
+  recountSelfHelpGroupOutputs,
+} from './activityOutputs'
 
 export const emptyProjectMetadata: ProjectMetadata = {
   title: '',
@@ -26,6 +31,7 @@ export const emptyProjectMetadata: ProjectMetadata = {
   plannedStartDate: '',
   plannedEndDate: '',
   description: '',
+  plannedSelfHelpGroupCount: null,
 }
 
 export const initialProjectDesignState: ProjectDesignState = {
@@ -86,6 +92,7 @@ export type ProjectDesignAction =
       intermediateOutcomeId: string
       frameworkActivityId: string
       selected: boolean
+      output?: ActivityOutputPlanning
     }
   | {
       type: 'setSuggestedActivities'
@@ -93,6 +100,7 @@ export type ProjectDesignAction =
       intermediateOutcomeId: string
       frameworkActivityIds: string[]
       selected: boolean
+      outputsByActivityId?: Record<string, ActivityOutputPlanning>
     }
   | {
       type: 'updateStandardActivityNotes'
@@ -100,6 +108,13 @@ export type ProjectDesignAction =
       intermediateOutcomeId: string
       frameworkActivityId: string
       projectNotes: string
+    }
+  | {
+      type: 'updateStandardActivityOutput'
+      pathwayId: string
+      intermediateOutcomeId: string
+      frameworkActivityId: string
+      output: ActivityOutputPlanning
     }
   | {
       type: 'addProjectSpecificActivity'
@@ -396,11 +411,52 @@ export function projectDesignReducer(
   action: ProjectDesignAction,
 ): ProjectDesignState {
   switch (action.type) {
-    case 'updateMetadata':
+    case 'updateMetadata': {
+      const metadata = { ...state.metadata, ...action.payload }
+      const selfHelpGroupCountChanged =
+        metadata.plannedSelfHelpGroupCount !==
+        state.metadata.plannedSelfHelpGroupCount
+      if (!selfHelpGroupCountChanged) {
+        return { ...state, metadata }
+      }
       return {
         ...state,
-        metadata: { ...state.metadata, ...action.payload },
+        metadata,
+        projectPathways: state.projectPathways.map((pathway) => ({
+          ...pathway,
+          intermediateOutcomeConfigurations:
+            pathway.intermediateOutcomeConfigurations.map((configuration) => ({
+              ...configuration,
+              standardActivities: recountSelfHelpGroupOutputs(
+                configuration.standardActivities,
+                metadata.plannedSelfHelpGroupCount,
+              ),
+              projectSpecificActivities: recountSelfHelpGroupOutputs(
+                configuration.projectSpecificActivities,
+                metadata.plannedSelfHelpGroupCount,
+              ),
+            })),
+        })),
+        customInnovation: state.customInnovation
+          ? {
+              ...state.customInnovation,
+              pathway: {
+                ...state.customInnovation.pathway,
+                intermediateOutcomes:
+                  state.customInnovation.pathway.intermediateOutcomes.map(
+                    (outcome) => ({
+                      ...outcome,
+                      activities: recountSelfHelpGroupOutputs(
+                        outcome.activities,
+                        metadata.plannedSelfHelpGroupCount,
+                      ),
+                    }),
+                  ),
+              },
+            }
+          : null,
       }
+    }
 
     case 'selectFinalOutcome':
       return {
@@ -598,14 +654,14 @@ export function projectDesignReducer(
         action.pathwayId,
         action.intermediateOutcomeId,
         (configuration) => {
-          const existing = configuration.standardActivities.some(
+          const existing = configuration.standardActivities.find(
             (activity) =>
               activity.frameworkActivityId === action.frameworkActivityId,
           )
-          const newSelection: StandardActivitySelection = {
-            frameworkActivityId: action.frameworkActivityId,
-            projectNotes: '',
-          }
+          const newSelection = createStandardActivitySelection(
+            action.frameworkActivityId,
+            action.output ?? emptyActivityOutputPlanning,
+          )
           return {
             ...configuration,
             standardActivities: action.selected
@@ -635,10 +691,10 @@ export function projectDesignReducer(
               ),
             }
           }
-          const notesById = new Map(
+          const existingById = new Map(
             configuration.standardActivities.map((activity) => [
               activity.frameworkActivityId,
-              activity.projectNotes,
+              activity,
             ]),
           )
           return {
@@ -647,10 +703,15 @@ export function projectDesignReducer(
               ...configuration.standardActivities.filter(
                 (activity) => !suggestedIds.has(activity.frameworkActivityId),
               ),
-              ...action.frameworkActivityIds.map((frameworkActivityId) => ({
-                frameworkActivityId,
-                projectNotes: notesById.get(frameworkActivityId) ?? '',
-              })),
+              ...action.frameworkActivityIds.map((frameworkActivityId) => {
+                const existing = existingById.get(frameworkActivityId)
+                if (existing) return existing
+                return createStandardActivitySelection(
+                  frameworkActivityId,
+                  action.outputsByActivityId?.[frameworkActivityId] ??
+                    emptyActivityOutputPlanning,
+                )
+              }),
             ],
           }
         },
@@ -672,6 +733,22 @@ export function projectDesignReducer(
         }),
       )
 
+    case 'updateStandardActivityOutput':
+      return updateIntermediateOutcomeConfiguration(
+        state,
+        action.pathwayId,
+        action.intermediateOutcomeId,
+        (configuration) => ({
+          ...configuration,
+          standardActivities: configuration.standardActivities.map(
+            (activity) =>
+              activity.frameworkActivityId === action.frameworkActivityId
+                ? { ...activity, ...action.output }
+                : activity,
+          ),
+        }),
+      )
+
     case 'addProjectSpecificActivity':
       return updateIntermediateOutcomeConfiguration(
         state,
@@ -681,7 +758,7 @@ export function projectDesignReducer(
           ...configuration,
           projectSpecificActivities: [
             ...configuration.projectSpecificActivities,
-            action.activity,
+            { ...emptyActivityOutputPlanning, ...action.activity },
           ],
         }),
       )
