@@ -207,6 +207,54 @@ p {
   color: var(--brand-dark);
 }
 
+.header-sign-out {
+  margin-left: 0.35rem;
+  color: var(--brand-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.signed-out-shell {
+  min-height: 100vh;
+  background: var(--surface-soft);
+}
+
+.signed-out-header {
+  position: static;
+}
+
+.signed-out-main {
+  display: grid;
+  min-height: calc(100vh - 72px);
+  place-items: center;
+  padding: 2rem;
+}
+
+.signed-out-panel {
+  width: min(100%, 520px);
+  padding: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 14px 38px rgba(23, 37, 31, 0.1);
+  text-align: center;
+}
+
+.signed-out-panel h1 {
+  margin-bottom: 0.65rem;
+}
+
+.signed-out-panel p {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+}
+
+.signed-out-button {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 9rem;
+}
+
 .project-save-bar {
   position: sticky;
   z-index: 45;

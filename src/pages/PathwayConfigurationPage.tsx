@@ -70,13 +70,8 @@ function OptionalActivityNotes({
           setSaved(true)
         }}
       />
-      {saved ? (
+      {saved && (
         <SessionSaveFeedback message={SAVED_SESSION_MESSAGE} />
-      ) : (
-        <small>
-          Add any project-specific details about this activity if useful. Leave
-          blank if the standard activity description is sufficient.
-        </small>
       )}
     </label>
   )

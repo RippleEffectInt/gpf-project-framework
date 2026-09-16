@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { getCurrentUser, type AppUser } from '../services/authService'
+import { useAuthenticatedUser } from '../services/authenticationContext'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import {
   canContinueToConfigure,
@@ -72,11 +72,7 @@ const internalLinks = [
 const externalLinks: ReadonlyArray<{ label: string; href: string }> = []
 
 function Header() {
-  const [user, setUser] = useState<AppUser | null>(null)
-
-  useEffect(() => {
-    void getCurrentUser().then(setUser)
-  }, [])
+  const user = useAuthenticatedUser()
 
   return (
     <header className="app-header">
@@ -121,6 +117,14 @@ function Header() {
           {user?.displayName.charAt(0) ?? '—'}
         </span>
         <span>{user?.displayName ?? 'Identity unavailable'}</span>
+        {user && !import.meta.env.DEV && (
+          <a
+            className="header-sign-out"
+            href="/.auth/logout?post_logout_redirect_uri=%2F"
+          >
+            Sign out
+          </a>
+        )}
       </div>
     </header>
   )

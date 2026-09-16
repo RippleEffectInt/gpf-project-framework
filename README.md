@@ -222,8 +222,8 @@ Production SharePoint access happens only through Azure Functions under
 Vite builds select `SharePointProjectRepository` automatically; local
 development keeps the browser `localStorage` repository. The Functions,
 certificate authentication and Graph storage gateway are implemented in
-`api/`. Remaining work is deployment and Azure Static Web Apps Entra login,
-documented in `docs/sharepoint-persistence-setup.md`.
+`api/`. Remaining deployment and tenant-side setup is documented in
+`docs/sharepoint-persistence-setup.md`.
 
 The approved app-only `Sites.Selected` design keeps native SharePoint
 `Author`/`Editor` audit fields and adds explicit human audit columns. The API
@@ -236,6 +236,9 @@ authentication. The
 development identity in `src/services/authService.ts` is returned only when
 Vite's `DEV` flag is true; production deliberately has no mock fallback.
 The production adapter reads the authenticated SWA `/.auth/me` principal.
+The application gate renders a signed-out screen until that endpoint returns
+a principal. Azure Static Web Apps rules protect `/projects`, `/design/*` and
+all `/api/*` routes while leaving the built-in `/.auth/*` endpoints available.
 Tenant registration and SWA authentication configuration have not been
 performed.
 

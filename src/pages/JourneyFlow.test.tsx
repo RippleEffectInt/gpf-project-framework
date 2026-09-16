@@ -509,6 +509,12 @@ describe('linear project-design journey', () => {
     const notes = screen.getByLabelText(
       'Project-specific details or notes — optional',
     )
+    const activityNotesHelper =
+      'Add any project-specific details about this activity if useful. Leave blank if the standard activity description is sufficient.'
+    expect(notes).toHaveAttribute('placeholder', activityNotesHelper)
+    expect(
+      screen.queryByText(activityNotesHelper),
+    ).not.toBeInTheDocument()
     fireEvent.change(notes, { target: { value: 'Retained project detail' } })
     const customActivityItem = screen
       .getByText('Initial project activity')

@@ -90,7 +90,13 @@ describe('production Static Web Apps deployment', () => {
     expect(staticWebAppConfig.navigationFallback.exclude).toEqual(
       expect.arrayContaining(['/api', '/api/*']),
     )
-    expect(staticWebAppConfig).not.toHaveProperty('responseOverrides')
+    expect(staticWebAppConfig.responseOverrides).toEqual({
+      401: { rewrite: '/index.html' },
+    })
+    expect(staticWebAppConfig.responseOverrides['401']).not.toHaveProperty(
+      'statusCode',
+    )
+    expect(staticWebAppConfig.responseOverrides).not.toHaveProperty('404')
 
     expect(wouldServeIndexHtml('/api/projects')).toBe(false)
     expect(wouldServeIndexHtml('/api/projects/PROJECT_1')).toBe(false)

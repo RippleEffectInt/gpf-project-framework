@@ -207,7 +207,7 @@ describe('SharePointProjectRepository', () => {
     ).toThrowError(expect.objectContaining({ code: 'malformed-data' }))
   })
 
-  it('protects both project API route forms with the authenticated SWA role', () => {
+  it('protects application and API routes with the authenticated SWA role', () => {
     expect(staticWebAppConfig.platform).toEqual({ apiRuntime: 'node:20' })
     expect(staticWebAppConfig.routes).toEqual(
       expect.arrayContaining([
@@ -219,8 +219,30 @@ describe('SharePointProjectRepository', () => {
           route: '/api/projects/*',
           allowedRoles: ['authenticated'],
         },
+        {
+          route: '/api/*',
+          allowedRoles: ['authenticated'],
+        },
+        {
+          route: '/projects',
+          rewrite: '/index.html',
+          allowedRoles: ['authenticated'],
+        },
+        {
+          route: '/design/*',
+          rewrite: '/index.html',
+          allowedRoles: ['authenticated'],
+        },
       ]),
     )
+    expect(staticWebAppConfig.responseOverrides).toEqual({
+      401: { rewrite: '/index.html' },
+    })
+    expect(
+      staticWebAppConfig.routes.some((route) =>
+        route.route.startsWith('/.auth'),
+      ),
+    ).toBe(false)
   })
 
   it('maps SharePoint precondition failures to a safe conflict error', async () => {

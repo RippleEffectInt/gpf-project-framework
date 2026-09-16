@@ -10,8 +10,27 @@
     {
       "route": "/api/projects/*",
       "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/projects",
+      "rewrite": "/index.html",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/design/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["authenticated"]
     }
   ],
+  "responseOverrides": {
+    "401": {
+      "rewrite": "/index.html"
+    }
+  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
