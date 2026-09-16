@@ -140,7 +140,7 @@ interface ProjectDesignContextValue {
   saveProject: (designOverride?: ProjectDesignState) => Promise<boolean>
   retryMetadataSync: () => Promise<void>
   startNewProject: () => void
-  openProject: (id: string) => Promise<void>
+  openProject: (id: string) => Promise<ProjectDesignState>
   reloadLatestProject: () => Promise<void>
   restoreUnsavedChanges: () => void
   listProjects: () => Promise<ProjectSummary[]>
@@ -228,10 +228,11 @@ export function ProjectDesignProvider({
         )
       }
       const loaded = loadPersistedProject(record.project, exactFramework)
+      const design = { ...loaded.design, lastSavedAt: record.modifiedAt }
       selectFrameworkVersion(exactFramework.frameworkVersion)
       reducerDispatch({
         type: 'replaceState',
-        state: { ...loaded.design, lastSavedAt: record.modifiedAt },
+        state: design,
       })
       revisionRef.current = 0
       setActiveProject({
@@ -245,6 +246,7 @@ export function ProjectDesignProvider({
       setSaveError(null)
       setMetadataSyncState(null)
       if (!preserveRecovery) setRecoveryState(null)
+      return design
     },
     [framework, selectFrameworkVersion],
   )
@@ -390,7 +392,7 @@ export function ProjectDesignProvider({
       try {
         const record = await repository.getProject(id)
         if (!record) throw new ProjectPersistenceError('not-found')
-        applyRecord(record)
+        return applyRecord(record)
       } catch (reason) {
         const error = asProjectPersistenceError(reason)
         setSaveError(error)

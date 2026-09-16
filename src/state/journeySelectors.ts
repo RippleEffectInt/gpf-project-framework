@@ -132,3 +132,14 @@ export function canContinueToReview(state: ProjectDesignState): boolean {
     isCustomInnovationStructurallyComplete(state.customInnovation)
   )
 }
+
+export function getProjectResumePath(
+  state: ProjectDesignState,
+): '/design/outcomes' | '/design/configure' | '/design/review' {
+  if (!hasAtLeastOneFinalOutcome(state) || !canContinueToConfigure(state)) {
+    return '/design/outcomes'
+  }
+  return canContinueToReview(state)
+    ? '/design/review'
+    : '/design/configure'
+}

@@ -10,7 +10,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function parseIdentity(value: unknown): ProjectAuditIdentity | undefined {
+export function parseProjectAuditIdentity(
+  value: unknown,
+): ProjectAuditIdentity | undefined {
   if (value === undefined) return undefined
   if (
     !isRecord(value) ||
@@ -41,8 +43,8 @@ export function parseProjectRecord(raw: unknown): ProjectRecord {
     etag: raw.etag,
     createdAt: raw.createdAt,
     modifiedAt: raw.modifiedAt,
-    createdBy: parseIdentity(raw.createdBy),
-    modifiedBy: parseIdentity(raw.modifiedBy),
+    createdBy: parseProjectAuditIdentity(raw.createdBy),
+    modifiedBy: parseProjectAuditIdentity(raw.modifiedBy),
   }
 }
 
@@ -56,6 +58,8 @@ export function toProjectSummary(record: ProjectRecord): ProjectSummary {
     frameworkVersion: record.project.frameworkVersion,
     schemaVersion: record.project.schemaVersion,
     modifiedAt: record.modifiedAt,
+    potentialDonor: record.project.design.metadata.donor || undefined,
+    createdBy: record.createdBy,
     modifiedBy: record.modifiedBy,
   }
 }

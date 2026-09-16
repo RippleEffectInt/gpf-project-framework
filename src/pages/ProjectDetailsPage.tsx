@@ -23,6 +23,7 @@ export function ProjectDetailsPage() {
     saveProject,
     saveStatus,
     saveError,
+    hasUnsavedChanges,
     metadataSyncRequired,
   } = useProjectDesign()
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -37,6 +38,10 @@ export function ProjectDetailsPage() {
     const validationErrors = validate(state.metadata)
     setErrors(validationErrors)
     if (Object.keys(validationErrors).length > 0) return
+    if (!hasUnsavedChanges) {
+      navigate('/design/outcomes')
+      return
+    }
     const saved = await saveProject()
     if (saved) {
       navigate('/design/outcomes')
@@ -82,15 +87,11 @@ export function ProjectDetailsPage() {
           )}
         </label>
         <label>
-          <span>Donor *</span>
+          <span>Potential Donor</span>
           <input
             value={state.metadata.donor}
             onChange={(event) => updateField('donor', event.target.value)}
-            aria-invalid={Boolean(errors.donor)}
           />
-          {errors.donor && (
-            <small className="field-error">{errors.donor}</small>
-          )}
         </label>
         <label>
           <span>Funding opportunity / reference *</span>
@@ -103,19 +104,6 @@ export function ProjectDetailsPage() {
           />
           {errors.fundingReference && (
             <small className="field-error">{errors.fundingReference}</small>
-          )}
-        </label>
-        <label>
-          <span>Project Manager *</span>
-          <input
-            value={state.metadata.projectManager}
-            onChange={(event) =>
-              updateField('projectManager', event.target.value)
-            }
-            aria-invalid={Boolean(errors.projectManager)}
-          />
-          {errors.projectManager && (
-            <small className="field-error">{errors.projectManager}</small>
           )}
         </label>
         <MonthYearFields

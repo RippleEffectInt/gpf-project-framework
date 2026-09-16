@@ -546,9 +546,35 @@ label .field-error {
   padding: 1.5rem;
 }
 
-.project-card h2 {
+.project-card h2,
+.project-card h3 {
   margin: 0.35rem 0 0;
   font-size: 1.25rem;
+}
+
+.project-list-section {
+  margin-top: 2.25rem;
+}
+
+.project-list-heading {
+  margin-bottom: 1rem;
+}
+
+.project-list-heading h2 {
+  margin: 0;
+}
+
+.project-list-heading p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.project-list-section .filter-bar {
+  margin-bottom: 1.25rem;
+}
+
+.compact-empty-state {
+  padding: 1.25rem;
 }
 
 .project-card-heading {

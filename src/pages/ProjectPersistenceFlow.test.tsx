@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { App } from '../App'
@@ -7,6 +13,12 @@ import { ProjectPersistenceError } from '../persistence/errors'
 import { LocalProjectRepository } from '../persistence/localProjectRepository'
 import { SharePointProjectRepository } from '../persistence/sharePointProjectRepository'
 import { serializeProject } from '../persistence/projectSerialization'
+import { AuthenticatedUserContext } from '../services/authenticationContext'
+import type { AppUser } from '../services/authService'
+import {
+  getPathwayIntermediateOutcomeSeeds,
+  getPrimaryPathwaysForFinalOutcome,
+} from '../services/frameworkService'
 import type {
   PersistedProjectDesignV1,
   ProjectRecord,
@@ -14,7 +26,10 @@ import type {
   ProjectSummary,
 } from '../persistence/types'
 import { FrameworkProvider, ProjectDesignProvider } from '../state/AppState'
-import { initialProjectDesignState } from '../state/projectDesign'
+import {
+  initialProjectDesignState,
+  projectDesignReducer,
+} from '../state/projectDesign'
 import type { FrameworkData } from '../types/framework'
 import type { ProjectDesignState } from '../types/project'
 
@@ -40,6 +55,58 @@ function document(name: string): PersistedProjectDesignV1 {
   })
 }
 
+function resumeDesign(
+  name: string,
+  completion: 'selected' | 'partial' | 'complete',
+): ProjectDesignState {
+  const outcome = framework.finalOutcomes.find(
+    (candidate) =>
+      getPrimaryPathwaysForFinalOutcome(framework, candidate.id).length > 0,
+  )
+  if (!outcome) throw new Error('Expected a Final Outcome.')
+  const pathway = getPrimaryPathwaysForFinalOutcome(
+    framework,
+    outcome.id,
+  )[0]
+  if (!pathway) throw new Error('Expected a Primary pathway.')
+  let state = projectDesignReducer(design(name), {
+    type: 'addPathway',
+    finalOutcomeId: outcome.id,
+    pathwayId: pathway.pathway.id,
+    relationshipType: 'primary',
+    frameworkPrimaryFinalOutcomeId:
+      pathway.pathway.primaryFinalOutcomeId,
+    intermediateOutcomes: getPathwayIntermediateOutcomeSeeds(
+      framework,
+      pathway.pathway.id,
+    ),
+  })
+  if (completion === 'selected') return state
+  const configurations =
+    state.projectPathways[0]?.intermediateOutcomeConfigurations ?? []
+  const configurationsToComplete =
+    completion === 'complete' ? configurations : configurations.slice(0, 1)
+  configurationsToComplete.forEach((configuration, index) => {
+    state = projectDesignReducer(state, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: pathway.pathway.id,
+      intermediateOutcomeId:
+        configuration.frameworkIntermediateOutcomeId,
+      activity: {
+        id: `RESUME_ACTIVITY_${index}`,
+        wording: 'Resume test activity',
+        projectDetails: '',
+      },
+    })
+  })
+  return completion === 'complete'
+    ? projectDesignReducer(state, {
+        type: 'markPathwayConfigured',
+        pathwayId: pathway.pathway.id,
+      })
+    : state
+}
+
 function record(
   project: PersistedProjectDesignV1,
   etag = '"combined-etag"',
@@ -52,12 +119,18 @@ function record(
   }
 }
 
-function renderApp(repository: ProjectRepository, initialEntry = '/projects') {
+function renderApp(
+  repository: ProjectRepository,
+  initialEntry = '/projects',
+  user: AppUser | null = null,
+) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <FrameworkProvider initialData={framework}>
         <ProjectDesignProvider repository={repository}>
-          <App />
+          <AuthenticatedUserContext.Provider value={user}>
+            <App />
+          </AuthenticatedUserContext.Provider>
         </ProjectDesignProvider>
       </FrameworkProvider>
     </MemoryRouter>,
@@ -71,16 +144,10 @@ function fillRequiredProjectDetails(title: string) {
   fireEvent.change(screen.getByLabelText('Country *'), {
     target: { value: 'Uganda' },
   })
-  fireEvent.change(screen.getByLabelText('Donor *'), {
-    target: { value: 'Example donor' },
-  })
   fireEvent.change(
     screen.getByLabelText('Funding opportunity / reference *'),
     { target: { value: 'REF-001' } },
   )
-  fireEvent.change(screen.getByLabelText('Project Manager *'), {
-    target: { value: 'Project manager' },
-  })
   fireEvent.change(
     screen.getByLabelText('Potential implementation start month'),
     { target: { value: '03' } },
@@ -122,6 +189,10 @@ describe('project persistence workflow', () => {
     renderApp(repository, '/design/details')
     fillRequiredProjectDetails('Save and continue project')
 
+    expect(screen.getByLabelText('Potential Donor')).toHaveValue('')
+    expect(
+      screen.queryByLabelText(/Project Manager/i),
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Save Draft' }),
     ).not.toBeInTheDocument()
@@ -201,7 +272,105 @@ describe('project persistence workflow', () => {
     expect(await screen.findByText('No saved projects yet')).toBeInTheDocument()
   })
 
-  it('creates a new project and lists it in My Projects', async () => {
+  it('separates human-owned projects from all accessible project designs', async () => {
+    const human: AppUser = {
+      id: 'human-object-id',
+      displayName: 'Human User',
+      email: 'human@example.org',
+    }
+    const identity = (
+      objectId: string,
+      email: string,
+      name = 'Audit user',
+    ) => ({ objectId, email, name })
+    const projects: ProjectSummary[] = [
+      {
+        id: 'CREATED',
+        name: 'Created by human',
+        country: 'Kenya',
+        status: 'Draft',
+        frameworkVersion: framework.frameworkVersion,
+        schemaVersion: 1,
+        modifiedAt: '2026-09-14T10:00:00.000Z',
+        createdBy: identity('human-object-id', 'old-email@example.org'),
+        modifiedBy: identity('other-object-id', 'other@example.org'),
+      },
+      {
+        id: 'MODIFIED',
+        name: 'Modified by human',
+        projectCode: 'MOD-1',
+        country: 'Uganda',
+        status: 'Approved',
+        frameworkVersion: framework.frameworkVersion,
+        schemaVersion: 1,
+        modifiedAt: '2026-09-16T10:00:00.000Z',
+        modifiedBy: identity('', ' HUMAN@EXAMPLE.ORG '),
+      },
+      {
+        id: 'BOTH',
+        name: 'Created and modified by human',
+        country: 'Tanzania',
+        status: 'Submitted',
+        frameworkVersion: framework.frameworkVersion,
+        schemaVersion: 1,
+        modifiedAt: '2026-09-15T10:00:00.000Z',
+        potentialDonor: 'FCDO',
+        createdBy: identity('human-object-id', 'human@example.org'),
+        modifiedBy: identity('human-object-id', 'human@example.org'),
+      },
+      {
+        id: 'OTHER',
+        name: 'Another team project',
+        country: 'Rwanda',
+        status: 'Draft',
+        frameworkVersion: framework.frameworkVersion,
+        schemaVersion: 1,
+        modifiedAt: '2026-09-13T10:00:00.000Z',
+        createdBy: identity('other-object-id', 'other@example.org'),
+        modifiedBy: identity('second-object-id', 'human@example.org'),
+      },
+    ]
+    const repository: ProjectRepository = {
+      createProject: async (project) => record(project),
+      updateProject: async (project) => record(project),
+      getProject: async () => null,
+      listProjects: async () => projects,
+    }
+    renderApp(repository, '/projects', human)
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Project Designs',
+      }),
+    ).toBeInTheDocument()
+    const mine = screen.getByRole('region', { name: 'My Projects' })
+    const all = screen.getByRole('region', { name: 'All Project Designs' })
+    expect(
+      within(mine).getAllByRole('article').map((card) => card.textContent),
+    ).toEqual([
+      expect.stringContaining('Modified by human'),
+      expect.stringContaining('Created and modified by human'),
+      expect.stringContaining('Created by human'),
+    ])
+    expect(within(mine).getAllByRole('article')).toHaveLength(3)
+    expect(within(all).getAllByRole('article')).toHaveLength(4)
+
+    fireEvent.change(
+      within(all).getByRole('searchbox', {
+        name: 'Search project designs',
+      }),
+      { target: { value: 'FCDO' } },
+    )
+    expect(within(all).getAllByRole('article')).toHaveLength(1)
+    expect(
+      within(all).getByRole('heading', {
+        name: 'Created and modified by human',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('creates a new project and lists it in Project Designs', async () => {
     const repository = new LocalProjectRepository({
       keyPrefix: 'test:create:',
     })
@@ -229,7 +398,13 @@ describe('project persistence workflow', () => {
     renderApp(repository)
 
     expect(await screen.findByText('Existing project')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Continue Editing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }))
+    expect(
+      await screen.findByRole('heading', {
+        name: 'What change is this project trying to achieve?',
+      }),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Design Project' }))
     const title = await screen.findByLabelText('Project title *')
     expect(title).toHaveValue('Existing project')
     fireEvent.change(title, { target: { value: 'Updated project' } })
@@ -241,6 +416,83 @@ describe('project persistence workflow', () => {
       expect(record?.etag).toBe('"2"')
     })
   })
+
+  it('loads an older project that retains Project Manager metadata', async () => {
+    const repository = new LocalProjectRepository({
+      keyPrefix: 'test:legacy-manager:',
+    })
+    const legacyDesign = design('Legacy manager project')
+    legacyDesign.metadata.projectManager = 'Legacy Project Manager'
+    await repository.createProject(
+      serializeProject({
+        id: 'LEGACY_PROJECT',
+        status: 'Draft',
+        design: legacyDesign,
+        framework,
+      }),
+    )
+    renderApp(repository)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Continue editing' }),
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'What change is this project trying to achieve?',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it.each([
+    ['selected', 'Configure pathways'],
+    ['partial', 'Configure pathways'],
+    ['complete', 'Review Project Design'],
+  ] as const)(
+    'resumes a %s saved design at its furthest sensible stage',
+    async (completion, expectedHeading) => {
+      const designState = resumeDesign(
+        `${completion} resume project`,
+        completion,
+      )
+      const project = serializeProject({
+        id: `RESUME_${completion.toUpperCase()}`,
+        status: 'Draft',
+        design: designState,
+        framework,
+      })
+      const saved = record(project)
+      const repository: ProjectRepository = {
+        createProject: async (candidate) => record(candidate),
+        updateProject: async (candidate) => record(candidate),
+        getProject: async (id) =>
+          id === project.project.id ? saved : null,
+        listProjects: async () => [
+          {
+            id: project.project.id,
+            name: project.project.name,
+            country: project.project.country,
+            status: project.project.status,
+            frameworkVersion: project.frameworkVersion,
+            schemaVersion: project.schemaVersion,
+            modifiedAt: saved.modifiedAt,
+          },
+        ],
+      }
+      renderApp(repository)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Continue editing' }),
+      )
+
+      expect(
+        await screen.findByRole('heading', {
+          level: 1,
+          name: expectedHeading,
+        }),
+      ).toBeInTheDocument()
+    },
+  )
 
   it('keeps local edits when a save fails', async () => {
     const repository: ProjectRepository = {
@@ -321,7 +573,10 @@ describe('project persistence workflow', () => {
     renderApp(repository)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Continue Editing' }),
+      await screen.findByRole('button', { name: 'Continue editing' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('link', { name: 'Design Project' }),
     )
     const title = await screen.findByLabelText('Project title *')
     expect(title).toHaveValue('Original project')

@@ -8,9 +8,7 @@ const requiredMetadataFields: Array<
 > = [
   'title',
   'country',
-  'donor',
   'fundingReference',
-  'projectManager',
   'plannedStartDate',
   'plannedEndDate',
   'description',

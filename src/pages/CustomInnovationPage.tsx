@@ -21,7 +21,13 @@ const GOVERNANCE_MESSAGE =
 export function CustomInnovationPage() {
   const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
+  const {
+    state,
+    dispatch,
+    saveProject,
+    saveStatus,
+    hasUnsavedChanges,
+  } = useProjectDesign()
   const custom = state.customInnovation
 
   if (!data) {
@@ -91,8 +97,11 @@ export function CustomInnovationPage() {
   }
 
   const saveAndContinue = async (destination: string) => {
-    const saved = await saveProject()
-    if (saved) navigate(destination)
+    if (hasUnsavedChanges) {
+      const saved = await saveProject()
+      if (!saved) return
+    }
+    navigate(destination)
   }
 
   return (
@@ -375,7 +384,7 @@ export function CustomInnovationPage() {
             >
               {saveStatus === 'saving'
                 ? 'Saving…'
-                : 'Save custom outcome and continue choosing outcomes'}
+                : 'Save & continue'}
             </button>
             {canConfigure ? (
               <button
@@ -386,21 +395,21 @@ export function CustomInnovationPage() {
               >
                 {saveStatus === 'saving'
                   ? 'Saving…'
-                  : 'Save custom outcome and continue to configure pathways'}
+                  : 'Save & configure pathways'}
               </button>
             ) : (
               <button className="button secondary" type="button" disabled>
-                Save custom outcome and continue to configure pathways
+                Save & configure pathways
               </button>
             )}
           </>
         ) : (
           <>
             <button className="button primary" type="button" disabled>
-              Save custom outcome and continue choosing outcomes
+              Save & continue
             </button>
             <button className="button secondary" type="button" disabled>
-              Save custom outcome and continue to configure pathways
+              Save & configure pathways
             </button>
           </>
         )}

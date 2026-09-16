@@ -1,5 +1,8 @@
 import { ProjectPersistenceError } from './errors'
-import { parseProjectRecord } from './projectRecord'
+import {
+  parseProjectAuditIdentity,
+  parseProjectRecord,
+} from './projectRecord'
 import type {
   PersistedProjectDesignV1,
   ProjectRepository,
@@ -66,6 +69,18 @@ function parseSummary(raw: unknown): ProjectSummary {
     frameworkVersion: raw.frameworkVersion,
     schemaVersion: raw.schemaVersion,
     modifiedAt: raw.modifiedAt,
+    potentialDonor:
+      'potentialDonor' in raw && typeof raw.potentialDonor === 'string'
+        ? raw.potentialDonor
+        : undefined,
+    createdBy:
+      'createdBy' in raw
+        ? parseProjectAuditIdentity(raw.createdBy)
+        : undefined,
+    modifiedBy:
+      'modifiedBy' in raw
+        ? parseProjectAuditIdentity(raw.modifiedBy)
+        : undefined,
   }
 }
 

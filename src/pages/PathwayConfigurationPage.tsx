@@ -772,7 +772,13 @@ function IntermediateOutcomeConfigurationCard({
   outcome: IntermediateOutcome
   configuration: ProjectIntermediateOutcomeConfiguration
 }) {
-  const { dispatch, state, saveProject, saveStatus } = useProjectDesign()
+  const {
+    dispatch,
+    state,
+    saveProject,
+    saveStatus,
+    hasUnsavedChanges,
+  } = useProjectDesign()
   const plannedSelfHelpGroupCount =
     state.metadata.plannedSelfHelpGroupCount
   const primaryIndicator = getPrimaryIndicatorForIntermediateOutcome(
@@ -819,6 +825,16 @@ function IntermediateOutcomeConfigurationCard({
   const [savingStep, setSavingStep] = useState(false)
 
   const saveCompletedStep = async () => {
+    if (configuration.reviewed) {
+      if (!hasUnsavedChanges) return
+      setSavingStep(true)
+      try {
+        await saveProject()
+      } finally {
+        setSavingStep(false)
+      }
+      return
+    }
     const action = {
       type: 'setIntermediateOutcomeReviewed' as const,
       pathwayId,
@@ -1115,7 +1131,13 @@ export function PathwayConfigurationPage() {
   const { pathwayId = '' } = useParams()
   const navigate = useNavigate()
   const { data, loading, error, retry } = useFramework()
-  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
+  const {
+    state,
+    dispatch,
+    saveProject,
+    saveStatus,
+    hasUnsavedChanges,
+  } = useProjectDesign()
   const [savingAndReturning, setSavingAndReturning] = useState(false)
 
   if (!data) {
@@ -1269,6 +1291,21 @@ export function PathwayConfigurationPage() {
           }
           onClick={() => {
             if (missingActivityMessages.length > 0) {
+              return
+            }
+            if (status === 'configured') {
+              if (!hasUnsavedChanges) {
+                navigate('/design/configure', { replace: true })
+                return
+              }
+              setSavingAndReturning(true)
+              void saveProject()
+                .then((saved) => {
+                  if (saved) {
+                    navigate('/design/configure', { replace: true })
+                  }
+                })
+                .finally(() => setSavingAndReturning(false))
               return
             }
             const action = {

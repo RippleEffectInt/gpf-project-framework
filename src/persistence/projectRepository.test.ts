@@ -367,6 +367,48 @@ describe('SharePointProjectRepository', () => {
     fetchSpy.mockRestore()
   })
 
+  it('reads human creator and modifier metadata from project summaries', async () => {
+    const repository = new SharePointProjectRepository(
+      '/api/projects',
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              id: 'PROJECT_1',
+              name: 'Audited project',
+              projectCode: 'AUD-1',
+              country: 'Kenya',
+              status: 'Draft',
+              frameworkVersion: '1.0',
+              schemaVersion: 1,
+              modifiedAt: '2026-09-16T10:00:00.000Z',
+              createdBy: {
+                objectId: 'creator-id',
+                name: 'Creator',
+                email: 'creator@example.org',
+              },
+              modifiedBy: {
+                objectId: 'modifier-id',
+                name: 'Modifier',
+                email: 'modifier@example.org',
+              },
+            },
+          ]),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+    )
+
+    await expect(repository.listProjects()).resolves.toEqual([
+      expect.objectContaining({
+        createdBy: expect.objectContaining({ objectId: 'creator-id' }),
+        modifiedBy: expect.objectContaining({ objectId: 'modifier-id' }),
+      }),
+    ])
+  })
+
   it('maps authentication and permission responses without exposing raw errors', async () => {
     const unauthenticated = new SharePointProjectRepository(
       '/api/projects',

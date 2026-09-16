@@ -13,7 +13,12 @@ import { getReviewEntryBlockers } from '../state/projectReadiness'
 export function ConfigurePathwaysOverviewPage() {
   const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, saveProject, saveStatus } = useProjectDesign()
+  const {
+    state,
+    saveProject,
+    saveStatus,
+    hasUnsavedChanges,
+  } = useProjectDesign()
 
   if (!data) {
     return (
@@ -53,8 +58,11 @@ export function ConfigurePathwaysOverviewPage() {
   const reviewBlockers = getReviewEntryBlockers(data, state)
 
   const continueToReview = async () => {
-    const saved = await saveProject()
-    if (saved) navigate('/design/review')
+    if (hasUnsavedChanges) {
+      const saved = await saveProject()
+      if (!saved) return
+    }
+    navigate('/design/review')
   }
 
   return (
@@ -205,7 +213,7 @@ export function ConfigurePathwaysOverviewPage() {
           >
             {saveStatus === 'saving'
               ? 'Saving…'
-              : 'Save & continue to review'}
+              : 'Save & review'}
           </button>
         </section>
       ) : (
@@ -233,7 +241,7 @@ export function ConfigurePathwaysOverviewPage() {
             </Link>
           ) : (
             <button className="button primary large" type="button" disabled>
-              Save & continue to review
+              Save & review
             </button>
           )}
         </section>

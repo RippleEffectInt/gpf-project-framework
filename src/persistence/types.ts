@@ -169,6 +169,8 @@ export interface ProjectSummary {
   frameworkVersion: string
   schemaVersion: number
   modifiedAt: string
+  potentialDonor?: string
+  createdBy?: ProjectAuditIdentity
   modifiedBy?: ProjectAuditIdentity
 }
 

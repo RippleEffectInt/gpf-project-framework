@@ -69,7 +69,7 @@ function BasketPathwayRow({
 }
 
 const internalLinks = [
-  { label: 'My Projects', to: '/projects' },
+  { label: 'Project Designs', to: '/projects' },
   { label: 'Design Project', to: '/design/details' },
 ] as const
 
@@ -245,7 +245,13 @@ function ProjectBasket({
 }) {
   const navigate = useNavigate()
   const { data } = useFramework()
-  const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
+  const {
+    state,
+    dispatch,
+    saveProject,
+    saveStatus,
+    hasUnsavedChanges,
+  } = useProjectDesign()
   const projectTitle = state.metadata.title.trim() || 'Untitled project'
   const incompleteOutcomeCount = getIncompleteFinalOutcomeIds(state).length
   const configureAvailable = canContinueToConfigure(state)
@@ -270,8 +276,10 @@ function ProjectBasket({
   ]
 
   const saveAndConfigure = async () => {
-    const saved = await saveProject()
-    if (!saved) return
+    if (hasUnsavedChanges) {
+      const saved = await saveProject()
+      if (!saved) return
+    }
     onClose()
     navigate('/design/configure')
   }
@@ -593,7 +601,7 @@ function ProjectBasket({
             >
               {saveStatus === 'saving'
                 ? 'Saving…'
-                : 'Save & continue to configure pathways'}
+                : 'Save & configure pathways'}
             </button>
           ) : (
             <>
@@ -609,7 +617,7 @@ function ProjectBasket({
                 type="button"
                 disabled
               >
-                Save & continue to configure pathways
+                Save & configure pathways
               </button>
             </>
           )}

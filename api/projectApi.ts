@@ -59,6 +59,11 @@ export class ProjectApiService {
         frameworkVersion: fields.FrameworkVersion,
         schemaVersion: fields.ProjectSchemaVersion,
         modifiedAt: nativeTimestamp(record.fields, 'Modified'),
+        createdBy: {
+          objectId: fields.CreatedByObjectId,
+          name: fields.CreatedByName,
+          email: fields.CreatedByEmail,
+        },
         modifiedBy: {
           objectId: fields.ModifiedByObjectId,
           name: fields.ModifiedByName,

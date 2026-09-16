@@ -17,6 +17,7 @@ import {
   getSuggestedActivitiesForIntermediateOutcome,
 } from '../services/frameworkService'
 import { FrameworkProvider, ProjectDesignProvider } from '../state/AppState'
+import { getProjectResumePath } from '../state/journeySelectors'
 import {
   initialProjectDesignState,
   projectDesignReducer,
@@ -185,6 +186,47 @@ function renderApplication(
 }
 
 describe('linear project-design journey', () => {
+  it('derives resume stages from meaningful saved design completion', () => {
+    const detailsOnly = {
+      ...initialProjectDesignState,
+      metadata: {
+        ...initialProjectDesignState.metadata,
+        title: 'Details-only project',
+      },
+    }
+    expect(getProjectResumePath(detailsOnly)).toBe('/design/outcomes')
+
+    const selected = addPathway(
+      detailsOnly,
+      outcome.id,
+      primaryPathway,
+      'primary',
+    )
+    expect(getProjectResumePath(selected)).toBe('/design/configure')
+
+    const firstConfiguration =
+      selected.projectPathways[0]?.intermediateOutcomeConfigurations[0]
+    if (!firstConfiguration) {
+      throw new Error('Expected a pathway configuration.')
+    }
+    const partiallyConfigured = projectDesignReducer(selected, {
+      type: 'addProjectSpecificActivity',
+      pathwayId: primaryPathway.pathway.id,
+      intermediateOutcomeId:
+        firstConfiguration.frameworkIntermediateOutcomeId,
+      activity: {
+        id: 'resume-activity',
+        wording: 'Partial configuration activity',
+        projectDetails: '',
+      },
+    })
+    expect(getProjectResumePath(partiallyConfigured)).toBe(
+      '/design/configure',
+    )
+
+    expect(getProjectResumePath(confirm(selected))).toBe('/design/review')
+  })
+
   it('shows the Final Outcome indicator and pathway choices on one page', () => {
     renderJourney(`/design/outcomes/${outcome.id}`)
 
@@ -216,7 +258,7 @@ describe('linear project-design journey', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.queryByRole('button', {
-        name: 'Save & continue to configure pathways',
+        name: 'Save & configure pathways',
       }),
     ).not.toBeInTheDocument()
   })
@@ -252,7 +294,7 @@ describe('linear project-design journey', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Save & continue to configure pathways',
+        name: 'Save & configure pathways',
       }),
     ).toBeDisabled()
     expect(
@@ -271,12 +313,12 @@ describe('linear project-design journey', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Save & continue to configure pathways',
+        name: 'Save & configure pathways',
       }),
     ).toBeDisabled()
   })
 
-  it('saves before the basket handoff after Primary requirements are met', async () => {
+  it('does not save an unchanged project during the basket handoff', async () => {
     const validState = addPathway(
       {
         ...initialProjectDesignState,
@@ -289,19 +331,23 @@ describe('linear project-design journey', () => {
       primaryPathway,
       'primary',
     )
-    const repository: ProjectRepository = {
-      createProject: async (project) => ({
-        project,
-        etag: '"created"',
-        createdAt: '2026-09-16T12:00:00.000Z',
-        modifiedAt: '2026-09-16T12:00:00.000Z',
-      }),
-      updateProject: async (project) => ({
+    const createProject = vi.fn(async (project: PersistedProjectDesignV1) => ({
+      project,
+      etag: '"created"',
+      createdAt: '2026-09-16T12:00:00.000Z',
+      modifiedAt: '2026-09-16T12:00:00.000Z',
+    }))
+    const updateProject = vi.fn(
+      async (project: PersistedProjectDesignV1) => ({
         project,
         etag: '"updated"',
         createdAt: '2026-09-16T12:00:00.000Z',
         modifiedAt: '2026-09-16T12:00:00.000Z',
       }),
+    )
+    const repository: ProjectRepository = {
+      createProject,
+      updateProject,
       getProject: async () => null,
       listProjects: async () => [],
     }
@@ -312,13 +358,15 @@ describe('linear project-design journey', () => {
     )
 
     const continueButton = screen.getByRole('button', {
-      name: 'Save & continue to configure pathways',
+      name: 'Save & configure pathways',
     })
     fireEvent.click(continueButton)
 
     expect(
       await screen.findByRole('heading', { name: 'Configure pathways' }),
     ).toBeInTheDocument()
+    expect(createProject).not.toHaveBeenCalled()
+    expect(updateProject).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -828,7 +876,7 @@ describe('linear project-design journey', () => {
       screen.queryByRole('link', { name: 'Configure pathway' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Save & continue to review' }),
+      screen.getByRole('button', { name: 'Save & review' }),
     ).toBeInTheDocument()
   })
 
@@ -880,7 +928,7 @@ describe('linear project-design journey', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('saves before continuing from Configure Project to review', async () => {
+  it('does not save an unchanged project when continuing to review', async () => {
     const state = confirm(
       addPathway(
         {
@@ -895,49 +943,42 @@ describe('linear project-design journey', () => {
         'primary',
       ),
     )
-    let resolveSave: (record: ProjectRecord) => void = () => undefined
-    let submitted: PersistedProjectDesignV1 | null = null
-    const repository: ProjectRepository = {
-      createProject: (project) => {
-        submitted = project
-        return new Promise<ProjectRecord>((resolve) => {
-          resolveSave = resolve
-        })
-      },
-      updateProject: async (project) => ({
+    const createProject = vi.fn(
+      async (project: PersistedProjectDesignV1): Promise<ProjectRecord> => ({
+        project,
+        etag: '"created"',
+        createdAt: '2026-09-16T12:00:00.000Z',
+        modifiedAt: '2026-09-16T12:00:00.000Z',
+      }),
+    )
+    const updateProject = vi.fn(
+      async (project: PersistedProjectDesignV1): Promise<ProjectRecord> => ({
         project,
         etag: '"updated"',
         createdAt: '2026-09-16T12:00:00.000Z',
         modifiedAt: '2026-09-16T12:00:00.000Z',
       }),
+    )
+    const repository: ProjectRepository = {
+      createProject,
+      updateProject,
       getProject: async () => null,
       listProjects: async () => [],
     }
     renderJourney('/design/configure', state, repository)
     const continueButton = screen.getByRole('button', {
-      name: 'Save & continue to review',
+      name: 'Save & review',
     })
 
     fireEvent.click(continueButton)
 
-    expect(continueButton).toBeDisabled()
-    expect(continueButton).toHaveTextContent('Saving…')
-    expect(
-      screen.queryByRole('heading', { name: 'Review Project Design' }),
-    ).not.toBeInTheDocument()
-    const savedProject = submitted as PersistedProjectDesignV1 | null
-    if (!savedProject) throw new Error('Expected review handoff save payload.')
-    resolveSave({
-      project: savedProject,
-      etag: '"created"',
-      createdAt: '2026-09-16T12:00:00.000Z',
-      modifiedAt: '2026-09-16T12:00:00.000Z',
-    })
     expect(
       await screen.findByRole('heading', {
         name: 'Review Project Design',
       }),
     ).toBeInTheDocument()
+    expect(createProject).not.toHaveBeenCalled()
+    expect(updateProject).not.toHaveBeenCalled()
   })
 })
 
@@ -1070,7 +1111,7 @@ describe('custom innovation and project review', () => {
     renderJourney('/design/configure', state)
     expect(
       screen.queryByRole('button', {
-        name: 'Save & continue to review',
+        name: 'Save & review',
       }),
     ).not.toBeInTheDocument()
     expect(
@@ -1078,7 +1119,7 @@ describe('custom innovation and project review', () => {
     ).toBeInTheDocument()
   })
 
-  it('enables Save & continue to review when configuration is complete', () => {
+  it('enables Save & review when configuration is complete', () => {
     let state = addPathway(
       initialProjectDesignState,
       outcome.id,
@@ -1089,7 +1130,7 @@ describe('custom innovation and project review', () => {
     renderJourney('/design/configure', state)
     expect(
       screen.getByRole('button', {
-        name: 'Save & continue to review',
+        name: 'Save & review',
       }),
     ).toBeInTheDocument()
   })
@@ -1234,14 +1275,8 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
     fireEvent.change(screen.getByLabelText('Country *'), {
       target: { value: 'Kenya' },
     })
-    fireEvent.change(screen.getByLabelText('Donor *'), {
-      target: { value: 'FCDO' },
-    })
     fireEvent.change(screen.getByLabelText(/Funding opportunity/), {
       target: { value: 'REF-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Project Manager/), {
-      target: { value: 'Amina Hassan' },
     })
     fireEvent.change(screen.getByLabelText(/Short project description/), {
       target: { value: 'A project to strengthen local seed markets.' },
@@ -1549,12 +1584,12 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
     ).toBeGreaterThan(0)
     expect(
       screen.getByRole('button', {
-        name: 'Save custom outcome and continue choosing outcomes',
+        name: 'Save & continue',
       }),
     ).toBeDisabled()
     expect(
       screen.getByRole('button', {
-        name: 'Save custom outcome and continue to configure pathways',
+        name: 'Save & configure pathways',
       }),
     ).toBeDisabled()
     expect(
@@ -1668,12 +1703,12 @@ describe('UX clarity for dates, related pathways and custom innovation', () => {
     renderApplication('/design/custom-innovation', completeCustom)
     expect(
       screen.getByRole('button', {
-        name: 'Save custom outcome and continue choosing outcomes',
+        name: 'Save & continue',
       }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: 'Save custom outcome and continue to configure pathways',
+        name: 'Save & configure pathways',
       }),
     ).toBeInTheDocument()
   })

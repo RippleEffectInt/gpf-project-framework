@@ -422,8 +422,8 @@ export function ReviewProjectPage() {
             <dd>{metadata.country}</dd>
           </div>
           <div>
-            <dt>Donor</dt>
-            <dd>{metadata.donor}</dd>
+            <dt>Potential Donor</dt>
+            <dd>{metadata.donor || 'Not specified'}</dd>
           </div>
           <div>
             <dt>Funding opportunity/reference</dt>

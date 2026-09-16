@@ -23,7 +23,7 @@ const stages: Array<{
   {
     id: 'review',
     number: 3,
-    label: 'Review project',
+    label: 'Review & Export',
     to: '/design/review',
   },
 ]
