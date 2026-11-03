@@ -1,3 +1,4 @@
+import { compareStandardOutcomeSteps } from '../services/pathwayCausalOrder'
 import { inputCategories } from '../data/inputCategories'
 import { getFrameworkByVersion } from '../data/frameworkRegistry'
 import { loadPersistedProject } from '../persistence/projectSerialization'
@@ -203,7 +204,7 @@ function buildStandardPathwayContexts(
         })
         .sort(
           (left, right) =>
-            left.outcome.stepNumber - right.outcome.stepNumber,
+            compareStandardOutcomeSteps(pathway.id, left.outcome.stepNumber, right.outcome.stepNumber),
         )
     return {
       pathwayId: pathway.id,

@@ -4,6 +4,7 @@ import type {
   TocGraphModel,
   TocNode,
 } from './types'
+import { compareStandardOutcomeSteps } from '../services/pathwayCausalOrder'
 
 export const TOC_LANE_COLUMNS = {
   pathway: { x: 30, width: 150 },
@@ -118,7 +119,9 @@ export function layoutTheoryOfChangeGraph(graph: TocGraphModel): TocLaneLayout {
         ) {
           return 0
         }
-        return left.data.stepNumber - right.data.stepNumber
+        return pathway.custom
+          ? left.data.stepNumber - right.data.stepNumber
+          : compareStandardOutcomeSteps(left.data.pathwayId, left.data.stepNumber, right.data.stepNumber)
       })
     const intermediateHeight =
       pathwayIntermediateOutcomes.reduce(
@@ -260,22 +263,18 @@ export function getTheoryOfChangeDisplayEdges(
       sourceNode?.type === 'pathway'
     ) {
       const pathwayEntityId = sourceNode.id.replace(/^toc:pathway:/, '')
+      const terminalEdge = graph.edges.find((candidate) =>
+        candidate.relationshipType === 'intermediateOutcomeChain' &&
+        candidate.target === sourceNode.id,
+      )
       const finalStep = positioned.nodes
         .filter(
           (item) =>
             item.node.type === 'intermediateOutcome' &&
             item.node.data.pathwayId === pathwayEntityId,
         )
-        .sort((left, right) => {
-          if (
-            left.node.type !== 'intermediateOutcome' ||
-            right.node.type !== 'intermediateOutcome'
-          ) {
-            return 0
-          }
-          return right.node.data.stepNumber - left.node.data.stepNumber
-        })[0]
-      return [{ ...edge, source: finalStep?.node.id ?? edge.source }]
+        .sort((left, right) => right.position.y - left.position.y)[0]
+      return [{ ...edge, source: terminalEdge?.source ?? finalStep?.node.id ?? edge.source }]
     }
     return [edge]
   })

@@ -9,6 +9,7 @@ import {
   getImpactAreasForFinalOutcome,
   getIndicator,
   getIntermediateOutcomesForPathway,
+  getIntermediateOutcomesInCausalOrder,
   getPathway,
   getPrimaryFinalOutcomeForPathway,
   getPrimaryIndicatorForFinalOutcome,
@@ -665,7 +666,12 @@ export function ReviewProjectPage() {
                       : 'Configure pathway'}
                   </Link>
                   <h4>Intermediate Outcome chain</h4>
-                  {item.pathway.intermediateOutcomeConfigurations.map(
+                  {getIntermediateOutcomesInCausalOrder(data, item.pathway.pathwayId).flatMap((outcome) => {
+                    const configuration = item.pathway.intermediateOutcomeConfigurations.find(
+                      (candidate) => candidate.frameworkIntermediateOutcomeId === outcome.id,
+                    )
+                    return configuration ? [configuration] : []
+                  }).map(
                     (configuration) => (
                       <IntermediateOutcomeReview
                         key={configuration.frameworkIntermediateOutcomeId}

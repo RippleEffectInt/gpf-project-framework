@@ -287,3 +287,54 @@ order are unchanged.
   project record and adapted for a second country. The original must remain
   unchanged; record identity, audit history and country-specific edits need
   explicit handling when this feature is designed.
+
+
+## Preview corrections: overview navigation and dietary diversity
+
+The draft overview opens over the current editing page. **Back to editing** or
+Escape closes it without remounting the editor, preserving expanded sections,
+scroll position and unsubmitted form text. Opening `/design/overview` directly
+provides a safe return to the appropriate design stage instead of relying on
+browser history.
+
+Household dietary diversity (`PW_026`) is displayed in the confirmed causal
+order **5 → 4 → 3 → 2 → 1 → Final Outcome**. The correction applies to pathway
+previews, configuration, Review, generated diagrams and results-framework/logframe
+exports. Step numbers, IDs, framework JSON and saved configuration order are
+unchanged. Graph arrows now use the actual terminal Intermediate Outcome rather
+than assuming that the largest step number is terminal.
+
+All 39 active standard pathways were inspected in the current framework. Both
+registered datasets contain the same five dietary-diversity IDs and numbers.
+A global reversal would be inappropriate: Pass on the Gift (`PW_006`),
+Community-based extension (`PW_028`) and Climate information use (`PW_035`) contain
+progressions from initial participation/training/information through later use
+or continuation. Other chains contain mixed statements that do not establish a
+uniform numbering convention. Only Phil's explicitly confirmed `PW_026` order is
+corrected; other standard chains and all custom ordering remain unchanged pending
+any further thematic review.
+
+## Testing the downloadable preview on Windows
+
+Extract the ZIP into a new folder. The updated ZIP contains `package.json` and
+`package-lock.json` directly at its root. Open PowerShell in the extracted folder.
+Run each command line separately; do not paste explanatory prose.
+
+```powershell
+Test-Path .\package-lock.json
+npm ci
+```
+
+The first command must return `True`. After installation succeeds:
+
+```powershell
+$env:NODE_ENV = 'development'
+$env:VITE_PROJECT_REPOSITORY = 'local'
+npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
+
+Open `http://127.0.0.1:5173` and leave PowerShell running. This uses the development
+identity and browser-local storage, not live SharePoint. Use synthetic test data.
+Stop any previous preview on port 5173 with Ctrl+C before starting the new one.
+If using the same browser and port, previously saved local designs remain
+available; do not clear browser storage unless you intend to delete those drafts.

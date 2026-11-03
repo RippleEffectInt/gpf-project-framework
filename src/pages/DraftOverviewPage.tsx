@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { overviewBackground } from '../state/draftOverviewNavigation'
+import { getProjectResumePath } from '../state/journeySelectors'
 import { TheoryOfChangeGraph } from '../components/TheoryOfChangeGraph'
 import { OutcomeLimitNotice } from '../components/OutcomeLimitNotice'
 import { inputCategories } from '../data/inputCategories'
@@ -10,8 +12,21 @@ import { generateTheoryOfChangeGraph } from '../theoryOfChange/generateTheoryOfC
 export function DraftOverviewPage() {
   const { data, loading, error, retry } = useFramework()
   const { state, hasUnsavedChanges } = useProjectDesign()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const closeControl = (
+    <div className="draft-overview-close">
+      <button className="button secondary" type="button" autoFocus
+        onClick={() => overviewBackground(location)
+          ? navigate(-1)
+          : navigate(getProjectResumePath(state), { replace: true })}>
+        ← Back to editing
+      </button>
+    </div>
+  )
   if (!data) return (
     <div className="state-panel" role={error ? 'alert' : 'status'}>
+      {closeControl}
       <h1>{loading ? 'Loading draft overview' : 'Framework unavailable'}</h1>
       <p>{error ?? 'Preparing the current project design…'}</p>
       {error && <button className="button primary" onClick={retry}>Try again</button>}
@@ -24,6 +39,7 @@ export function DraftOverviewPage() {
   const empty = state.selectedFinalOutcomeIds.length === 0 && !state.customInnovation
   return (
     <div className="page-container">
+      {closeControl}
       <div className="page-heading">
         <span className="eyebrow">Work in progress</span>
         <h1>Draft project overview</h1>

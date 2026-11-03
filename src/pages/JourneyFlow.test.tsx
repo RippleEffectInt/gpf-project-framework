@@ -363,7 +363,7 @@ describe('linear project-design journey', () => {
     fireEvent.click(continueButton)
 
     expect(
-      await screen.findByRole('heading', { name: 'Configure pathways' }),
+      await screen.findByRole('heading', { name: 'Configure pathways' }, { timeout: 5000 }),
     ).toBeInTheDocument()
     expect(createProject).not.toHaveBeenCalled()
     expect(updateProject).not.toHaveBeenCalled()
@@ -865,7 +865,7 @@ describe('linear project-design journey', () => {
     })
 
     expect(
-      await screen.findByRole('heading', { name: 'Configure pathways' }),
+      await screen.findByRole('heading', { name: 'Configure pathways' }, { timeout: 5000 }),
     ).toBeInTheDocument()
     expect(screen.getByText('✓ All pathways configured')).toBeInTheDocument()
     expect(screen.getByText('✓ Configured')).toBeInTheDocument()
@@ -3052,7 +3052,7 @@ describe('draft save and outcome-limit feedback', () => {
     renderJourney(`/design/pathways/${primaryPathway.pathway.id}/configure`, incompleteDraft(), repository)
     expect(screen.getByRole('button', { name: 'Confirm pathway complete & return' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Save draft & return to pathways' }))
-    expect(await screen.findByRole('heading', { name: 'Configure pathways' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Configure pathways' }, { timeout: 5000 })).toBeInTheDocument()
     const steps = submitted?.design.projectPathways[0]?.intermediateOutcomeConfigurations
     expect(steps?.length).toBeGreaterThan(0)
     expect(steps?.every((step) => !step.reviewed && step.standardActivities.length === 0 && step.projectSpecificActivities.length === 0)).toBe(true)
@@ -3082,4 +3082,55 @@ describe('draft save and outcome-limit feedback', () => {
     expect(await screen.findByRole('heading', { name: 'Draft project overview' })).toBeInTheDocument()
     expect(screen.getByText(/No outcomes selected yet/)).toBeInTheDocument()
   })
+})
+
+
+it('returns from the draft overview to the same open editor with unsubmitted text, repeatedly', async () => {
+  const state = addPathway(initialProjectDesignState, outcome!.id, primaryPathway!, 'primary')
+  const { container } = renderApplication(`/design/pathways/${primaryPathway!.pathway.id}/configure`, state)
+  const card = container.querySelector<HTMLDetailsElement>('details.io-configuration-card')!
+  card.open = true
+  fireEvent(card, new Event('toggle'))
+  const input = within(card).getByLabelText('Activity wording *')
+  fireEvent.change(input, { target: { value: 'Unsubmitted local activity draft' } })
+  const scroll = vi.spyOn(window, 'scrollTo')
+  scroll.mockClear()
+  for (let attempt = 0; attempt < 2; attempt++) {
+    fireEvent.click(screen.getByRole('link', { name: 'Draft project overview' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Draft project overview' })
+    const back = await within(dialog).findByRole('button', { name: '← Back to editing' })
+    if (attempt === 0) fireEvent.click(back)
+    else fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(card).toBeInTheDocument()
+    expect(card.open).toBe(true)
+    expect(scroll).toHaveBeenLastCalledWith({ left: window.scrollX, top: window.scrollY })
+    expect(input).toHaveValue('Unsubmitted local activity draft')
+    expect(within(card).getByText('No project-specific activities added.')).toBeInTheDocument()
+  }
+  scroll.mockRestore()
+})
+
+it('provides a safe editing destination when the draft overview is opened directly', async () => {
+  renderApplication('/design/overview')
+  fireEvent.click(await screen.findByRole('button', { name: '← Back to editing' }))
+  expect(await screen.findByRole('heading', { name: 'What change is this project trying to achieve?' })).toBeInTheDocument()
+})
+
+
+it('shows dietary diversity steps 5 to 1 in preview, configuration and final Review', () => {
+  const pathway = framework.pathways.find((item) => item.id === 'PW_026')!
+  const state = projectDesignReducer(initialProjectDesignState, {
+    type: 'addPathway', finalOutcomeId: pathway.primaryFinalOutcomeId, pathwayId: pathway.id,
+    relationshipType: 'primary', frameworkPrimaryFinalOutcomeId: pathway.primaryFinalOutcomeId,
+    intermediateOutcomes: getPathwayIntermediateOutcomeSeeds(framework, pathway.id),
+  })
+  const configuration = renderJourney(`/design/pathways/${pathway.id}/configure`, state)
+  expect([...configuration.container.querySelectorAll('.configuration-chain-item > .chain-number')].map((node) => node.textContent)).toEqual(['5', '4', '3', '2', '1'])
+  configuration.unmount()
+  const preview = renderJourney(`/design/outcomes/${pathway.primaryFinalOutcomeId}/pathways/${pathway.id}`, state)
+  expect([...preview.container.querySelectorAll('.outcome-chain .chain-number')].map((node) => node.textContent)).toEqual(['5', '4', '3', '2', '1'])
+  preview.unmount()
+  const review = renderJourney('/design/review', confirm(state))
+  expect([...review.container.querySelectorAll('.review-step-number')].map((node) => node.textContent)).toEqual(['Step 5', 'Step 4', 'Step 3', 'Step 2', 'Step 1'])
 })

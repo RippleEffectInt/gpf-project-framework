@@ -11,14 +11,13 @@ import { inputCategories } from '../data/inputCategories'
 import {
   getAdditionalIndicatorsForIntermediateOutcome,
   getFinalOutcome,
-  getIntermediateOutcomesForPathway,
+  getIntermediateOutcomesInCausalOrder,
   getPathway,
   getPrimaryIndicatorForIntermediateOutcome,
   getSuggestedActivitiesForIntermediateOutcome,
 } from '../services/frameworkService'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import {
-  getMissingActivityCompletionMessages,
   getPathwayConfigurationStatus,
   intermediateOutcomeHasRequiredActivity,
   projectDesignReducer,
@@ -1171,7 +1170,7 @@ export function PathwayConfigurationPage() {
     )
   }
 
-  const intermediateOutcomes = getIntermediateOutcomesForPathway(
+  const intermediateOutcomes = getIntermediateOutcomesInCausalOrder(
     data,
     pathwayId,
   )
@@ -1180,8 +1179,14 @@ export function PathwayConfigurationPage() {
     .map((link) => getFinalOutcome(data, link.finalOutcomeId))
     .filter((outcome) => outcome !== undefined)
   const status = getPathwayConfigurationStatus(projectPathway)
-  const missingActivityMessages =
-    getMissingActivityCompletionMessages(projectPathway)
+  const missingActivityMessages = intermediateOutcomes.flatMap((outcome) => {
+    const configuration = projectPathway.intermediateOutcomeConfigurations.find(
+      (item) => item.frameworkIntermediateOutcomeId === outcome.id,
+    )
+    return configuration && intermediateOutcomeHasRequiredActivity(configuration)
+      ? []
+      : [`Add an activity for Intermediate Outcome ${outcome.stepNumber} before completing this pathway.`]
+  })
 
   return (
     <div className="page-container configuration-page">

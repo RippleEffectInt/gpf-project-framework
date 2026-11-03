@@ -15,6 +15,7 @@ import type {
   PathwayRelationshipType,
 } from '../types/project'
 import { CURRENT_FRAMEWORK } from '../data/frameworkRegistry'
+import { compareStandardOutcomeSteps } from './pathwayCausalOrder'
 
 export const COMMUNITY_EXTENSION_PATHWAY_ID = 'PW_028'
 
@@ -202,7 +203,7 @@ function createPathwaySummary(
     link,
     relationshipType,
     rationale: getUserFacingRationale(link?.rationale ?? null),
-    intermediateOutcomes: getIntermediateOutcomesForPathway(data, pathway.id),
+    intermediateOutcomes: getIntermediateOutcomesInCausalOrder(data, pathway.id),
   }
 }
 
@@ -323,6 +324,15 @@ export function getIntermediateOutcomesForPathway(
 }
 
 export const getIntermediateOutcomes = getIntermediateOutcomesForPathway
+
+export function getIntermediateOutcomesInCausalOrder(
+  data: FrameworkData,
+  pathwayId: string,
+): IntermediateOutcome[] {
+  return getIntermediateOutcomesForPathway(data, pathwayId).sort((left, right) =>
+    compareStandardOutcomeSteps(pathwayId, left.stepNumber, right.stepNumber),
+  )
+}
 
 export function getPrimaryIndicatorForIntermediateOutcome(
   data: FrameworkData,

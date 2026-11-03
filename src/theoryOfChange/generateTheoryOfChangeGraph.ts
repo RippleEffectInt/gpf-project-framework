@@ -1,4 +1,5 @@
 import { getPathwayConfigurationStatus } from '../state/projectDesign'
+import { compareStandardOutcomeSteps } from '../services/pathwayCausalOrder'
 import type {
   ProjectIntermediateOutcomeConfiguration,
   ProjectPathway,
@@ -119,8 +120,8 @@ function buildStandardIntermediateOutcomes(
     })
     .sort(
       (left, right) =>
-        left.intermediateOutcome.stepNumber -
-        right.intermediateOutcome.stepNumber,
+        compareStandardOutcomeSteps(projectPathway.pathwayId,
+          left.intermediateOutcome.stepNumber, right.intermediateOutcome.stepNumber),
     )
 
   ordered.forEach(({ configuration, intermediateOutcome }, index) => {

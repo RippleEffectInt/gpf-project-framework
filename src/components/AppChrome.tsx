@@ -648,7 +648,7 @@ export function AppLayout() {
       {isDesignPage && <ProjectSaveBar />}
       {isDesignPage && (
         <nav className="draft-overview-navigation" aria-label="Draft overview navigation">
-          <NavLink to="/design/overview">Draft project overview</NavLink>
+          <NavLink to="/design/overview" state={{ backgroundLocation: location }}>Draft project overview</NavLink>
         </nav>
       )}
       <div className={`app-shell ${showBasket ? 'with-basket' : ''}`}>

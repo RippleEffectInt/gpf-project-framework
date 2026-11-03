@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { DraftOverviewDialog } from './components/DraftOverviewDialog'
+import { overviewBackground } from './state/draftOverviewNavigation'
 import { AppLayout } from './components/AppChrome'
 import {
   ChoosePathwaysPage,
@@ -27,8 +29,11 @@ const DraftOverviewPage = lazy(async () => {
 })
 
 export function App() {
+  const location = useLocation()
+  const background = overviewBackground(location)
   return (
-    <Routes>
+    <>
+    <Routes location={background ?? location}>
       <Route element={<AppLayout />}>
         <Route index element={<Navigate replace to="/projects" />} />
         <Route path="/projects" element={<MyProjectsPage />} />
@@ -82,5 +87,13 @@ export function App() {
         <Route path="*" element={<Navigate replace to="/projects" />} />
       </Route>
     </Routes>
+    {background && (
+      <DraftOverviewDialog>
+        <Suspense fallback={<p role="status">Loading draft overview…</p>}>
+          <DraftOverviewPage />
+        </Suspense>
+      </DraftOverviewDialog>
+    )}
+    </>
   )
 }
