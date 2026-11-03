@@ -760,12 +760,14 @@ function IncludeAllActivitiesCheckbox({
   )
 }
 
-function IntermediateOutcomeConfigurationCard({
+export function IntermediateOutcomeConfigurationCard({
   data,
   pathwayId,
   outcome,
   configuration,
+  mode = 'detailed',
 }: {
+  mode?: 'detailed' | 'activities' | 'indicators'
   data: FrameworkData
   pathwayId: string
   outcome: IntermediateOutcome
@@ -820,7 +822,7 @@ function IntermediateOutcomeConfigurationCard({
       : hasStarted
         ? 'In progress'
         : 'Not started'
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(mode !== 'detailed')
   const [savingStep, setSavingStep] = useState(false)
 
   const saveCompletedStep = async () => {
@@ -895,7 +897,7 @@ function IntermediateOutcomeConfigurationCard({
               </span>
               {outputSummary && <span>{outputSummary}</span>}
             </div>
-            {suggestedActivities.length > 0 && !open && (
+            {mode !== 'indicators' && suggestedActivities.length > 0 && !open && (
               <IncludeAllActivitiesCheckbox
                 className="io-summary-include-all"
                 pathwayId={pathwayId}
@@ -920,7 +922,7 @@ function IntermediateOutcomeConfigurationCard({
         </summary>
 
         <div className="io-config-body">
-          <section className="configuration-section">
+          <section className="configuration-section" hidden={mode === 'activities'}>
             <h3>Indicators</h3>
             {primaryIndicator && configuration.primaryIndicator ? (
               <div className="mandatory-selection">
@@ -984,7 +986,7 @@ function IntermediateOutcomeConfigurationCard({
             </OptionalQuestion>
           </section>
 
-          <section className="configuration-section">
+          <section className="configuration-section" hidden={mode === 'indicators'}>
             <h3>Activities</h3>
             {activityCount === 0 && (
               <div className="activity-required" role="status">
@@ -1079,7 +1081,7 @@ function IntermediateOutcomeConfigurationCard({
             />
           </section>
 
-          <section className="configuration-section">
+          <section className="configuration-section" hidden={mode !== 'detailed'}>
             <OptionalQuestion
               question="Do you wish to record any inputs required for this Intermediate Outcome?"
               defaultOpen={configuration.inputs.length > 0}
@@ -1092,7 +1094,7 @@ function IntermediateOutcomeConfigurationCard({
             </OptionalQuestion>
           </section>
 
-          <div className="review-control">
+          <div className="review-control" hidden={mode === 'activities'}>
             <div>
               <strong>Step review</strong>
               <p>

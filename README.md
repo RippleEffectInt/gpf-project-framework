@@ -355,5 +355,13 @@ on-screen Theory of Change and the Excel summary identify multi-country designs.
 The flag does not create records, split activities, allocate group totals by
 country or implement project duplication.
 
-The proposed basic/advanced configuration routes remain a design proposal only;
-see `docs/basic-design-proposal.md` for the decisions needed before implementation.
+Guided setup is available alongside detailed pathway configuration. See
+`docs/guided-design.md` for the workflow, editable group defaults and limitations.
+The earlier `docs/basic-design-proposal.md` is retained as design history.
+
+## Testing guided setup
+
+Open **Configure pathways → Guided setup**. Prepare untouched steps, review the
+activity/output defaults, then switch to **Indicators & review**. The **Detailed
+setup** button inside this page reveals the full editors without losing draft
+form text. Save a draft at any time; confirm steps only after reviewing them.

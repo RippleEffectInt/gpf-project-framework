@@ -71,7 +71,8 @@ export function ConfigurePathwaysOverviewPage() {
       <div className="page-heading">
         <span className="eyebrow">Stage 2 · Configure pathways</span>
         <h1>Configure pathways</h1>
-        <p>Which pathway do you need to configure next?</p>
+        <p>Use guided setup to review activities, outputs and indicators together, or configure individual pathways below with detailed setup.</p>
+        <Link className="button primary" to="/design/guided">Guided setup</Link>
         <Link className="button secondary choose-return-link" to="/design/outcomes">
           Add or change outcomes and pathways
         </Link>

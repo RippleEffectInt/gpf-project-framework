@@ -16,6 +16,7 @@ import {
 } from './pages/JourneyPages'
 import { CustomInnovationPage } from './pages/CustomInnovationPage'
 import { PathwayConfigurationPage } from './pages/PathwayConfigurationPage'
+import { GuidedDesignPage } from './pages/GuidedDesignPage'
 import { ProjectDetailsPage } from './pages/ProjectDetailsPage'
 
 const TheoryOfChangePage = lazy(async () => {
@@ -63,6 +64,7 @@ export function App() {
           path="/design/configure"
           element={<ConfigurePathwaysOverviewPage />}
         />
+        <Route path="/design/guided" element={<GuidedDesignPage />} />
         <Route path="/design/review" element={<ReviewProjectPage />} />
         <Route path="/design/overview" element={
           <Suspense fallback={<p role="status">Loading draft overview…</p>}>

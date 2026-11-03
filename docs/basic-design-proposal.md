@@ -1,3 +1,5 @@
+> Historical proposal. Guided setup is now implemented; see [guided-design.md](guided-design.md) for the delivered behaviour and conservative limitations.
+
 # Proposed guided configuration route — not implemented
 
 Phil's proposed basic route is feasible as a second interface over the same
