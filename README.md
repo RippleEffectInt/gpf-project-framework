@@ -281,8 +281,9 @@ order are unchanged.
 
 ## Agreed future work
 
-- Add a multi-country checkbox alongside free-text country names. No change to
-  country storage or SharePoint configuration is included in the current work.
+- Multi-country identification is now implemented as a checkbox with the existing
+  free-text country field. This remains one project record; no SharePoint column
+  changes or country-specific allocations are included.
 - Add project duplication so a nearly finished design can be copied into a new
   project record and adapted for a second country. The original must remain
   unchanged; record identity, audit history and country-specific edits need
@@ -338,3 +339,21 @@ identity and browser-local storage, not live SharePoint. Use synthetic test data
 Stop any previous preview on port 5173 with Ctrl+C before starting the new one.
 If using the same browser and port, previously saved local designs remain
 available; do not clear browser storage unless you intend to delete those drafts.
+
+
+## Multi-country identification
+
+Project details includes a **Multi-country project** checkbox. When selected,
+the same country text field is labelled **Countries**, with `Kenya, Ethiopia` as
+an example. Turning the flag off does not clear or rewrite the names.
+
+The optional boolean `design.metadata.isMultiCountry` is stored in the existing
+version-1 project JSON. Older drafts without it load with `false`; malformed
+non-boolean values are rejected. The original `project.country` field and its
+SharePoint text-column mapping are unchanged. Review, the draft overview, the
+on-screen Theory of Change and the Excel summary identify multi-country designs.
+The flag does not create records, split activities, allocate group totals by
+country or implement project duplication.
+
+The proposed basic/advanced configuration routes remain a design proposal only;
+see `docs/basic-design-proposal.md` for the decisions needed before implementation.

@@ -97,7 +97,7 @@ export function TheoryOfChangePage() {
             <dd>{state.metadata.title || 'Untitled project'}</dd>
           </div>
           <div>
-            <dt>Country</dt>
+            <dt>{state.metadata.isMultiCountry ? 'Countries (multi-country project)' : 'Country'}</dt>
             <dd>{state.metadata.country || 'Not set'}</dd>
           </div>
           <div>

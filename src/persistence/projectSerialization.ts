@@ -296,6 +296,7 @@ export function isPersistedProjectDesignV1(
     isOptionalString(project.projectCode) &&
     isProjectStatus(project.status) &&
     isRecord(design.metadata) &&
+    (design.metadata.isMultiCountry === undefined || typeof design.metadata.isMultiCountry === 'boolean') &&
     isString(design.metadata.donor) &&
     isString(design.metadata.fundingReference) &&
     isString(design.metadata.projectManager) &&
@@ -453,6 +454,7 @@ export function serializeProject({
     },
     design: {
       metadata: {
+        isMultiCountry: design.metadata.isMultiCountry === true,
         donor: design.metadata.donor,
         fundingReference: design.metadata.fundingReference,
         projectManager: design.metadata.projectManager,
@@ -617,6 +619,7 @@ export function loadPersistedProject(
       metadata: {
         title: document.project.name,
         country: document.project.country ?? '',
+        isMultiCountry: document.design.metadata.isMultiCountry ?? false,
         donor: document.design.metadata.donor,
         fundingReference: document.design.metadata.fundingReference,
         projectManager: document.design.metadata.projectManager,

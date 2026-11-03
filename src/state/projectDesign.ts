@@ -26,6 +26,7 @@ import {
 export const emptyProjectMetadata: ProjectMetadata = {
   title: '',
   country: '',
+  isMultiCountry: false,
   donor: '',
   fundingReference: '',
   projectManager: '',

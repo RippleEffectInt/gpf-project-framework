@@ -79,7 +79,8 @@ function addProjectSummary(
   const metadataRows: Array<[string, CellValue]> = [
     ['Project title', model.metadata.projectTitle],
     ['Project code', model.metadata.projectCode || 'Not set'],
-    ['Country', model.metadata.country || 'Not set'],
+    [model.metadata.isMultiCountry ? 'Countries' : 'Country', model.metadata.country || 'Not set'],
+    ['Multi-country project', model.metadata.isMultiCountry ? 'Yes' : 'No'],
     ['Status', model.metadata.status],
     ['Planned/potential start', model.metadata.plannedStart],
     ['Planned/potential end', model.metadata.plannedEnd],

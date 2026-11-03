@@ -44,6 +44,7 @@ export function DraftOverviewPage() {
         <span className="eyebrow">Work in progress</span>
         <h1>Draft project overview</h1>
         <p>{state.metadata.title || 'Untitled project'}</p>
+        {state.metadata.isMultiCountry && <p>Multi-country project: {state.metadata.country || 'Countries not entered yet'}</p>}
         <p>This overview develops from your current choices as you build the project.
           It is not a completed review or an approved design. Final Review &amp; Export
           still requires the normal completion checks.</p>

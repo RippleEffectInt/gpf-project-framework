@@ -8,6 +8,7 @@ export interface ProjectExportMetadata {
   projectTitle: string
   projectCode: string
   country: string
+  isMultiCountry?: boolean
   status: string
   plannedStart: string
   plannedEnd: string

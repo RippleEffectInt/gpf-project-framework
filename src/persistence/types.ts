@@ -113,6 +113,7 @@ export interface PersistedProjectDesignV1 {
   }
   design: {
     metadata: {
+      isMultiCountry?: boolean
       donor: string
       fundingReference: string
       projectManager: string

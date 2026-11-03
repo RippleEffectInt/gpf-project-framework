@@ -1,6 +1,8 @@
 export interface ProjectMetadata {
   title: string
   country: string
+  /** Absent in older drafts; treated as false. Country names stay free text. */
+  isMultiCountry?: boolean
   donor: string
   fundingReference: string
   projectManager: string

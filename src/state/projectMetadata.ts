@@ -4,7 +4,7 @@ import { isYearMonth } from './projectDates'
 export type ProjectMetadataErrors = Partial<Record<keyof ProjectMetadata, string>>
 
 const requiredMetadataFields: Array<
-  Exclude<keyof ProjectMetadata, 'plannedSelfHelpGroupCount'>
+  Exclude<keyof ProjectMetadata, 'plannedSelfHelpGroupCount' | 'isMultiCountry'>
 > = [
   'title',
   'country',

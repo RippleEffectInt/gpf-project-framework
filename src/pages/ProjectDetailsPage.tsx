@@ -75,13 +75,24 @@ export function ProjectDetailsPage() {
             </small>
           )}
         </label>
+        <label className="checkbox-option full-width">
+          <input type="checkbox" checked={state.metadata.isMultiCountry === true}
+            onChange={(event) => dispatch({
+              type: 'updateMetadata', payload: { isMultiCountry: event.target.checked },
+            })} />
+          <span>Multi-country project</span>
+        </label>
         <label>
-          <span>Country *</span>
+          <span id="country-label">{state.metadata.isMultiCountry ? 'Countries *' : 'Country *'}</span>
           <input
+            aria-labelledby="country-label"
+            aria-describedby={state.metadata.isMultiCountry ? 'country-help' : undefined}
             value={state.metadata.country}
             onChange={(event) => updateField('country', event.target.value)}
             aria-invalid={Boolean(errors.country)}
+            placeholder={state.metadata.isMultiCountry ? 'For example: Kenya, Ethiopia' : undefined}
           />
+          {state.metadata.isMultiCountry && <small id="country-help">List the countries in free text. This remains one project record.</small>}
           {errors.country && (
             <small className="field-error">{errors.country}</small>
           )}

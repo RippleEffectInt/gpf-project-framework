@@ -799,6 +799,7 @@ export function buildProjectExportModel(
       projectTitle: state.metadata.title,
       projectCode: record.project.project.projectCode ?? '',
       country: state.metadata.country,
+      isMultiCountry: state.metadata.isMultiCountry === true,
       status: record.project.project.status,
       plannedStart: formatYearMonthDisplay(
         state.metadata.plannedStartDate,

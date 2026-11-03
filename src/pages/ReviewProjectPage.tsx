@@ -460,7 +460,7 @@ export function ReviewProjectPage() {
             <dd>{metadata.title}</dd>
           </div>
           <div>
-            <dt>Country</dt>
+            <dt>{metadata.isMultiCountry ? 'Countries (multi-country project)' : 'Country'}</dt>
             <dd>{metadata.country}</dd>
           </div>
           <div>

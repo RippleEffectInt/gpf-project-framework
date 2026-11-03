@@ -47,6 +47,7 @@ function relatedPathwayState(): ProjectDesignState {
     metadata: {
       title: 'Persisted project',
       country: 'Uganda',
+      isMultiCountry: false,
       donor: 'Example donor',
       fundingReference: 'FUND-42',
       projectManager: 'Project manager',
