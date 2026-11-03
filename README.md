@@ -155,8 +155,11 @@ Implemented:
   full-screen viewing and keyboard-accessible node detail
 - Loading, error and empty states for local framework data
 
-A project may include any number of standard Final Outcomes allowed by the
-framework, plus a maximum of one optional Custom Innovation Final Outcome.
+New selections are limited to five Final Outcomes per project, including at most
+one optional Custom Innovation Final Outcome and Primary outcomes automatically
+added by Related pathways. Related additions are checked as one operation.
+Existing saved projects above five keep all selections and can still load,
+be edited and saved; further additions must not increase their outcome count.
 Custom content is never written into the framework reference file. It remains
 project-level and must link to at least one existing organisational Impact
 Area. Custom pathways require a name, description, why-this-pathway rationale,
@@ -258,3 +261,29 @@ configuration.
 
 These concerns should be added behind the existing service, state and `/api`
 boundaries rather than mixed into presentation components.
+
+
+## Draft design navigation
+
+`Save draft & return to pathways` persists unfinished pathway work without
+marking its Intermediate Outcomes reviewed. `Confirm pathway complete & return`
+retains the requirement for at least one activity per Intermediate Outcome.
+A failed save keeps the user on the pathway with their current work.
+
+The Draft project overview is available throughout design at `/design/overview`.
+It shows current outcome choices and pathway progress, including unsaved work.
+A draft Theory of Change appears once the existing structural checks pass;
+otherwise the page explains missing requirements and keeps current choices
+visible. This does not unlock final Review or change export validation.
+
+Outputs remain unrestricted. Standard Intermediate Outcome chains and their
+order are unchanged.
+
+## Agreed future work
+
+- Add a multi-country checkbox alongside free-text country names. No change to
+  country storage or SharePoint configuration is included in the current work.
+- Add project duplication so a nearly finished design can be copied into a new
+  project record and adapted for a second country. The original must remain
+  unchanged; record identity, audit history and country-specific edits need
+  explicit handling when this feature is designed.

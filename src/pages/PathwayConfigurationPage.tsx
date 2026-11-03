@@ -1139,6 +1139,7 @@ export function PathwayConfigurationPage() {
     hasUnsavedChanges,
   } = useProjectDesign()
   const [savingAndReturning, setSavingAndReturning] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   if (!data) {
     return (
@@ -1267,12 +1268,12 @@ export function PathwayConfigurationPage() {
         }`}
       >
         <div>
-          <span className="eyebrow">Finished this pathway?</span>
-          <h2>Confirm you are done</h2>
+          <span className="eyebrow">Pathway progress</span>
+          <h2>Save your progress</h2>
           <p>
             Every Intermediate Outcome needs at least one activity. Additional
-            indicators, activity notes and inputs remain optional. Save and
-            return to the pathway list when finished.
+            indicators, activity notes and inputs remain optional. Confirm
+            completion when finished, or save a draft and return at any time.
           </p>
           {missingActivityMessages.length > 0 && (
             <ul className="missing-activity-list">
@@ -1282,52 +1283,69 @@ export function PathwayConfigurationPage() {
             </ul>
           )}
         </div>
-        <button
-          className="button primary large"
-          type="button"
-          disabled={
-            saveStatus === 'saving' ||
-            missingActivityMessages.length > 0
-          }
-          onClick={() => {
-            if (missingActivityMessages.length > 0) {
-              return
+        <div className="pathway-save-actions">
+          <button
+            className="button secondary"
+            type="button"
+            disabled={saveStatus === 'saving' || savingAndReturning || savingDraft}
+            onClick={async () => {
+              setSavingDraft(true)
+              try {
+                if (await saveProject()) navigate('/design/configure', { replace: true })
+              } finally {
+                setSavingDraft(false)
+              }
+            }}
+          >
+            {savingDraft ? 'Saving draft…' : 'Save draft & return to pathways'}
+          </button>
+          <button
+            className="button primary large"
+            type="button"
+            disabled={
+              saveStatus === 'saving' ||
+              missingActivityMessages.length > 0
             }
-            if (status === 'configured') {
-              if (!hasUnsavedChanges) {
-                navigate('/design/configure', { replace: true })
+            onClick={() => {
+              if (missingActivityMessages.length > 0) {
                 return
               }
+              if (status === 'configured') {
+                if (!hasUnsavedChanges) {
+                  navigate('/design/configure', { replace: true })
+                  return
+                }
+                setSavingAndReturning(true)
+                void saveProject()
+                  .then((saved) => {
+                    if (saved) {
+                      navigate('/design/configure', { replace: true })
+                    }
+                  })
+                  .finally(() => setSavingAndReturning(false))
+                return
+              }
+              const action = {
+                type: 'markPathwayConfigured' as const,
+                pathwayId,
+              }
+              const nextState = projectDesignReducer(state, action)
+              dispatch(action)
               setSavingAndReturning(true)
-              void saveProject()
+              void saveProject(nextState)
                 .then((saved) => {
                   if (saved) {
                     navigate('/design/configure', { replace: true })
                   }
                 })
                 .finally(() => setSavingAndReturning(false))
-              return
-            }
-            const action = {
-              type: 'markPathwayConfigured' as const,
-              pathwayId,
-            }
-            const nextState = projectDesignReducer(state, action)
-            dispatch(action)
-            setSavingAndReturning(true)
-            void saveProject(nextState)
-              .then((saved) => {
-                if (saved) {
-                  navigate('/design/configure', { replace: true })
-                }
-              })
-              .finally(() => setSavingAndReturning(false))
-          }}
-        >
-          {savingAndReturning
-            ? 'Saving…'
-            : 'Save & return to pathways'}
-        </button>
+            }}
+          >
+            {savingAndReturning
+              ? 'Saving…'
+              : 'Confirm pathway complete & return'}
+          </button>
+        </div>
       </section>
     </div>
   )

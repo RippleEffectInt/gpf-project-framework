@@ -3822,3 +3822,22 @@ label .field-error {
     flex-direction: column;
   }
 }
+
+
+.draft-overview-navigation {
+  padding: 0.75rem clamp(1rem, 3vw, 2.5rem);
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.draft-overview-navigation a {
+  font-weight: 700;
+}
+
+.pathway-save-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  max-width: 100%;
+}

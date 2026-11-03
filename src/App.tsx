@@ -21,6 +21,11 @@ const TheoryOfChangePage = lazy(async () => {
   return { default: page.TheoryOfChangePage }
 })
 
+const DraftOverviewPage = lazy(async () => {
+  const page = await import('./pages/DraftOverviewPage')
+  return { default: page.DraftOverviewPage }
+})
+
 export function App() {
   return (
     <Routes>
@@ -54,6 +59,11 @@ export function App() {
           element={<ConfigurePathwaysOverviewPage />}
         />
         <Route path="/design/review" element={<ReviewProjectPage />} />
+        <Route path="/design/overview" element={
+          <Suspense fallback={<p role="status">Loading draft overview…</p>}>
+            <DraftOverviewPage />
+          </Suspense>
+        } />
         <Route
           path="/design/theory-of-change"
           element={

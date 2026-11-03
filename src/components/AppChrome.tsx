@@ -633,7 +633,9 @@ export function AppLayout() {
   const [basketOpen, setBasketOpen] = useState(false)
   const isDesignPage = location.pathname.startsWith('/design')
   const showBasket =
-    isDesignPage && location.pathname !== '/design/theory-of-change'
+    isDesignPage &&
+    location.pathname !== '/design/theory-of-change' &&
+    location.pathname !== '/design/overview'
   const showConfigureHandoff = location.pathname.startsWith('/design/outcomes')
 
   useLayoutEffect(() => {
@@ -644,6 +646,11 @@ export function AppLayout() {
     <>
       <Header />
       {isDesignPage && <ProjectSaveBar />}
+      {isDesignPage && (
+        <nav className="draft-overview-navigation" aria-label="Draft overview navigation">
+          <NavLink to="/design/overview">Draft project overview</NavLink>
+        </nav>
+      )}
       <div className={`app-shell ${showBasket ? 'with-basket' : ''}`}>
         <main id="main-content">
           <Outlet />

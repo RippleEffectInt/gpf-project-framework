@@ -185,7 +185,7 @@ function toFlowEdges(
   })
 }
 
-export function TheoryOfChangeGraph({ graph }: { graph: TocGraphModel }) {
+export function TheoryOfChangeGraph({ graph, draft = false }: { graph: TocGraphModel; draft?: boolean }) {
   const graphContainerRef = useRef<HTMLDivElement>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [fullScreen, setFullScreen] = useState(false)
@@ -269,6 +269,7 @@ export function TheoryOfChangeGraph({ graph }: { graph: TocGraphModel }) {
       <div className="toc-graph-column">
         <div className="toc-graph-toolbar">
           <p>
+            {draft && <strong>Draft — work in progress. </strong>}
             Read each pathway from left to right. Intermediate Outcome steps
             progress downward within each pathway lane.
           </p>

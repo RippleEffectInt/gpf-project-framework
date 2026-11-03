@@ -12,6 +12,7 @@ import type {
   ProjectSpecificIndicator,
 } from '../types/project'
 import type { PathwayRelationshipType } from '../types/project'
+import { outcomeLimitMessage } from './outcomeLimit'
 import {
   applyCustomInnovationAction,
   type CustomInnovationAction,
@@ -417,6 +418,7 @@ export function projectDesignReducer(
   state: ProjectDesignState,
   action: ProjectDesignAction,
 ): ProjectDesignState {
+  if (outcomeLimitMessage(state, action)) return state
   switch (action.type) {
     case 'updateMetadata': {
       const metadata = { ...state.metadata, ...action.payload }

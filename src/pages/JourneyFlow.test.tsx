@@ -841,7 +841,7 @@ describe('linear project-design journey', () => {
     )
 
     const saveAndReturn = screen.getByRole('button', {
-      name: 'Save & return to pathways',
+      name: 'Confirm pathway complete & return',
     })
     fireEvent.click(saveAndReturn)
 
@@ -913,7 +913,7 @@ describe('linear project-design journey', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Save & return to pathways',
+        name: 'Confirm pathway complete & return',
       }),
     )
 
@@ -2194,7 +2194,7 @@ describe('mandatory activities, configure return and review relationships', () =
       ).length,
     ).toBeGreaterThan(0)
     fireEvent.click(
-      screen.getByRole('button', { name: 'Save & return to pathways' }),
+      screen.getByRole('button', { name: 'Confirm pathway complete & return' }),
     )
     expect(
       screen.getByRole('heading', { name: primaryPathway.pathway.name }),
@@ -3032,5 +3032,54 @@ describe('persistent project title and bulk activity selection', () => {
     for (const activity of activities) {
       expect(within(card).getByLabelText(activity.text)).not.toBeChecked()
     }
+  })
+})
+
+
+describe('draft save and outcome-limit feedback', () => {
+  function incompleteDraft() {
+    return addPathway({ ...initialProjectDesignState, metadata: { ...initialProjectDesignState.metadata, title: 'Incomplete draft' } }, outcome!.id, primaryPathway!, 'primary')
+  }
+  it('persists and returns an incomplete draft without confirming its pathway', async () => {
+    let submitted: PersistedProjectDesignV1 | undefined
+    const repository: ProjectRepository = {
+      createProject: async (project) => {
+        submitted = project
+        return { project, etag: '"draft"', createdAt: '2026-11-03T12:00:00Z', modifiedAt: '2026-11-03T12:00:00Z' }
+      },
+      updateProject: vi.fn(), getProject: async () => null, listProjects: async () => [],
+    }
+    renderJourney(`/design/pathways/${primaryPathway.pathway.id}/configure`, incompleteDraft(), repository)
+    expect(screen.getByRole('button', { name: 'Confirm pathway complete & return' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft & return to pathways' }))
+    expect(await screen.findByRole('heading', { name: 'Configure pathways' })).toBeInTheDocument()
+    const steps = submitted?.design.projectPathways[0]?.intermediateOutcomeConfigurations
+    expect(steps?.length).toBeGreaterThan(0)
+    expect(steps?.every((step) => !step.reviewed && step.standardActivities.length === 0 && step.projectSpecificActivities.length === 0)).toBe(true)
+  })
+  it('stays on the pathway after draft saving fails, retaining editable work', async () => {
+    const repository: ProjectRepository = {
+      createProject: async () => { throw new ProjectPersistenceError('network', 'Draft save failed') },
+      updateProject: vi.fn(), getProject: async () => null, listProjects: async () => [],
+    }
+    renderApplication(`/design/pathways/${primaryPathway.pathway.id}/configure`, incompleteDraft(), repository)
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft & return to pathways' }))
+    expect(await screen.findByText('Draft save failed')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: primaryPathway.pathway.name, level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm pathway complete & return' })).toBeDisabled()
+  })
+  it('shows a limit error instead of navigating or announcing a rejected addition', () => {
+    const selectedFinalOutcomeIds = framework.finalOutcomes.filter((item) => item.active && item.id !== outcome.id).slice(0, 5).map((item) => item.id)
+    renderJourney(`/design/outcomes/${outcome.id}/pathways/${primaryPathway.pathway.id}`, { ...initialProjectDesignState, selectedFinalOutcomeIds })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add pathway to basket' })[0]!)
+    expect(screen.getByRole('alert')).toHaveTextContent('at most 5 Final Outcomes')
+    expect(screen.getByRole('heading', { name: primaryPathway.pathway.name, level: 1 })).toBeInTheDocument()
+    expect(screen.queryByText('Pathway added to project')).not.toBeInTheDocument()
+  })
+  it('exposes the early draft overview from the design shell', async () => {
+    renderApplication('/design/outcomes')
+    fireEvent.click(screen.getByRole('link', { name: 'Draft project overview' }))
+    expect(await screen.findByRole('heading', { name: 'Draft project overview' })).toBeInTheDocument()
+    expect(screen.getByText(/No outcomes selected yet/)).toBeInTheDocument()
   })
 })

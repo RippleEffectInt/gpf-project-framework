@@ -1,3 +1,5 @@
+import { OutcomeLimitNotice } from '../components/OutcomeLimitNotice'
+import { finalOutcomeCount, MAX_FINAL_OUTCOMES } from '../state/outcomeLimit'
 import { Link, useNavigate } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
 import {
@@ -42,6 +44,7 @@ export function CustomInnovationPage() {
     return (
       <div className="page-container">
         <DesignProgress current="choose" />
+        <OutcomeLimitNotice />
         <Link className="back-link" to="/design/outcomes">
           ← Back to all outcomes
         </Link>
@@ -60,6 +63,7 @@ export function CustomInnovationPage() {
         <button
           className="button primary"
           type="button"
+          disabled={finalOutcomeCount(state) >= MAX_FINAL_OUTCOMES}
           onClick={() =>
             dispatch({
               type: 'addCustomInnovation',

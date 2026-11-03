@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { OutcomeLimitNotice } from '../components/OutcomeLimitNotice'
+import { finalOutcomeCount, MAX_FINAL_OUTCOMES, outcomeLimitMessage } from '../state/outcomeLimit'
 import { createBlankCustomInnovation } from '../state/customInnovation'
 import {
   getActiveFinalOutcomes,
@@ -79,6 +81,7 @@ export function FindFinalOutcomesPage() {
   return (
     <div className="page-container">
       <DesignProgress current="choose" />
+      <OutcomeLimitNotice />
       <div className="page-heading">
         <span className="eyebrow">Stage 1 · Choose outcomes and pathways</span>
         <h1>What change is this project trying to achieve?</h1>
@@ -136,6 +139,7 @@ export function FindFinalOutcomesPage() {
           <button
             className="button secondary"
             type="button"
+            disabled={finalOutcomeCount(state) >= MAX_FINAL_OUTCOMES}
             onClick={() => {
               dispatch({
                 type: 'addCustomInnovation',
@@ -183,6 +187,7 @@ export function FindFinalOutcomesPage() {
 
 export function FinalOutcomeDetailPage() {
   const { outcomeId = '' } = useParams()
+  const [limitError, setLimitError] = useState<string | null>(null)
   const { data } = useFramework()
   const {
     state,
@@ -232,8 +237,8 @@ export function FinalOutcomeDetailPage() {
       data,
       pathwaySummary.pathway.id,
     )
-    dispatch({
-      type: 'addPathway',
+    const action = {
+      type: 'addPathway' as const,
       finalOutcomeId: outcomeId,
       pathwayId: pathwaySummary.pathway.id,
       relationshipType: pathwaySummary.relationshipType,
@@ -243,7 +248,11 @@ export function FinalOutcomeDetailPage() {
         data,
         pathwaySummary.pathway.id,
       ),
-    })
+    }
+    const message = outcomeLimitMessage(state, action)
+    setLimitError(message)
+    if (message) return
+    dispatch(action)
   }
 
   const renderPathwayCard = (
@@ -284,7 +293,9 @@ export function FinalOutcomeDetailPage() {
 
   return (
     <div className="page-container detail-page">
+      {limitError && <p className="field-error" role="alert">{limitError}</p>}
       <DesignProgress current="choose" />
+      <OutcomeLimitNotice />
       <Link className="back-link" to="/design/outcomes">
         ← Back to all outcomes
       </Link>
@@ -420,6 +431,7 @@ export function ChoosePathwaysPage() {
 }
 
 export function PathwayDetailPage() {
+  const [limitError, setLimitError] = useState<string | null>(null)
   const { outcomeId = '', pathwayId = '' } = useParams()
   const navigate = useNavigate()
   const { data } = useFramework()
@@ -463,8 +475,8 @@ export function PathwayDetailPage() {
         pathwayPrimaryOutcome &&
         !state.selectedFinalOutcomeIds.includes(pathwayPrimaryOutcome.id),
     )
-    dispatch({
-      type: 'addPathway',
+    const action = {
+      type: 'addPathway' as const,
       finalOutcomeId: outcomeId,
       pathwayId,
       relationshipType: summary.relationshipType,
@@ -474,7 +486,11 @@ export function PathwayDetailPage() {
         data,
         pathwayId,
       ),
-    })
+    }
+    const message = outcomeLimitMessage(state, action)
+    setLimitError(message)
+    if (message) return
+    dispatch(action)
     announcePathwayNavigation({
       finalOutcomeId: outcomeId,
       pathwayId,
@@ -503,7 +519,9 @@ export function PathwayDetailPage() {
 
   return (
     <div className="page-container detail-page">
+      {limitError && <p className="field-error" role="alert">{limitError}</p>}
       <DesignProgress current="choose" />
+      <OutcomeLimitNotice />
       <Link
         className="back-link"
         to={`/design/outcomes/${outcomeId}`}
