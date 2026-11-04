@@ -17,7 +17,7 @@ function ActivityItem({ activity, standard, fixedWording = false, context, onCha
     <p className="guided-item-title">Activity: {activity.wording || 'Untitled activity'}</p>
     <p className="guided-output"><strong>Output:</strong> {displayedOutputText(activity, standard?.outputPhrase) ?? 'Not specified yet'}</p>
     <div className="guided-item-actions">
-      <button type="button" className="text-button" onClick={() => setEditing(!editing)}>{editing ? 'Done editing' : 'Edit'}</button>
+      <button type="button" className="text-button" hidden={editing} onClick={() => setEditing(true)}>Edit</button>
       <button type="button" className="text-button" onClick={onRemove}>Remove activity</button>
     </div>
     <div className="guided-inline-editor" hidden={!editing}>
@@ -27,6 +27,7 @@ function ActivityItem({ activity, standard, fixedWording = false, context, onCha
       <p className="field-guidance">Project notes are optional: describe who will take part, where and when the activity will happen, and any local adaptations.</p>
       <label>Project notes<textarea value={activity.projectDetails} onChange={e => onChange({ ...activity, projectDetails: e.target.value })} /></label>
       <PlannedOutputEditor guided planning={normalizeActivityOutput(activity)} activity={standard} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => onChange({ ...activity, ...output })} />
+      <div className="guided-item-actions"><button type="button" className="button secondary" onClick={() => setEditing(false)}>Done editing</button></div>
     </div>
   </li>
 }
@@ -54,8 +55,8 @@ function IndicatorItem({ indicator, required = false, context, onChange, onRemov
   </li>
 }
 
-export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, phase }: {
-  pathwayIds?: string[]; custom?: boolean; primary?: ProjectSpecificIndicator
+export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, finalOutcomeStatement, phase }: {
+  pathwayIds?: string[]; custom?: boolean; primary?: ProjectSpecificIndicator; finalOutcomeStatement: string
   phase: 'activities' | 'indicators' | 'detailed'
 }) {
   const { data } = useFramework()
@@ -70,13 +71,13 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
   const [showAvailable, setShowAvailable] = useState(false)
   if (!data) return null
   const targets = custom ? (state.customInnovation?.pathway.intermediateOutcomes ?? []).map(io => ({
-    key: io.id, pathwayId: '', ioId: io.id, label: io.statement || 'Untitled Intermediate Outcome',
+    key: io.id, pathwayId: '', ioId: io.id, statement: io.statement || 'Untitled Intermediate Outcome', label: io.statement || 'Untitled Intermediate Outcome',
     standardActivities: [], activities: io.activities, primary: io.primaryIndicator,
     optional: [], indicators: io.additionalIndicators,
   })) : pathwayIds.flatMap(pathwayId => getIntermediateOutcomesInCausalOrder(data, pathwayId).flatMap(io => {
     const configuration = state.projectPathways.find(p => p.pathwayId === pathwayId)?.intermediateOutcomeConfigurations.find(c => c.frameworkIntermediateOutcomeId === io.id)
     if (!configuration) return []
-    return [{ key: `${pathwayId}/${io.id}`, pathwayId, ioId: io.id,
+    return [{ key: `${pathwayId}/${io.id}`, pathwayId, ioId: io.id, statement: io.statement,
       label: `${getPathway(data, pathwayId)?.name ?? pathwayId} · ${io.statement}`,
       standardActivities: configuration.standardActivities, activities: configuration.projectSpecificActivities,
       primary: { id: configuration.primaryIndicator?.frameworkIndicatorId ?? '', wording: getIndicator(data, configuration.primaryIndicator?.frameworkIndicatorId)?.text ?? 'Required Primary indicator missing', measurementNotes: '' },
@@ -143,14 +144,23 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
       {!custom && <details className="guided-available"><summary>Add a suggested activity</summary>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getSuggestedActivitiesForIntermediateOutcome(data, target.ioId).filter(a => !target.standardActivities.some(s => s.frameworkActivityId === a.id)).map(a => <button className="text-button" key={a.id} onClick={() => dispatch({ type: 'setStandardActivity', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkActivityId: a.id, selected: true })}>Add: {a.text}</button>)}</div>)}</details>}
     </div>
     <div hidden={phase !== 'indicators'}>
-      <p className="neutral-note">The framework requires one Primary indicator for the Final Outcome and one for each Intermediate Outcome below. Suggested and custom indicators are optional.</p>
+      <div className="guided-required-table" role="region" aria-label={`Required Primary Indicators for ${finalOutcomeStatement}`} tabIndex={0}>
+        <table>
+          <caption>Required Primary Indicators</caption>
+          <thead><tr><th scope="col">Outcome level</th><th scope="col">Outcome statement</th><th scope="col">Required Primary indicator</th></tr></thead>
+          <tbody>
+            {primary && <tr><td>Final Outcome</td><th scope="row">{finalOutcomeStatement}</th><td>{primary.wording || 'Primary indicator not entered yet'}{primary.measurementNotes && <p>Measurement notes: {primary.measurementNotes}</p>}</td></tr>}
+            {targets.map(target => <tr key={target.key}><td>Intermediate Outcome</td><th scope="row">{target.statement}</th><td>{target.primary.wording || 'Primary indicator not entered yet'}{target.primary.measurementNotes && <p>Measurement notes: {target.primary.measurementNotes}</p>}</td></tr>)}
+          </tbody>
+        </table>
+      </div>
+      <p className="neutral-note">Required Primary indicators are read-only here. Suggested and custom indicators below are optional.</p>
+      <h3>Additional Intermediate Outcome indicators</h3>
       <ul className="guided-items">
-        {primary && <IndicatorItem indicator={primary} required context="Final Outcome" onChange={custom ? indicator => dispatch({ type: 'setCustomOutcomePrimaryIndicator', indicator }) : undefined} />}
         {targets.flatMap(target => [
-          <IndicatorItem key={`${target.key}/primary`} indicator={target.primary} required context={`Intermediate Outcome: ${target.label}`} onChange={custom ? indicator => dispatch({ type: 'setCustomIoPrimaryIndicator', intermediateOutcomeId: target.ioId, indicator }) : undefined} />,
-          ...target.optional.map(selection => <IndicatorItem key={`${target.key}/${selection.frameworkIndicatorId}`} indicator={{ id: selection.frameworkIndicatorId, wording: getIndicator(data, selection.frameworkIndicatorId)?.text ?? selection.frameworkIndicatorId, measurementNotes: '' }} context={target.label}
+          ...target.optional.map(selection => <IndicatorItem key={`${target.key}/${selection.frameworkIndicatorId}`} indicator={{ id: selection.frameworkIndicatorId, wording: getIndicator(data, selection.frameworkIndicatorId)?.text ?? selection.frameworkIndicatorId, measurementNotes: '' }} context={`Intermediate Outcome: ${target.statement}`}
             onRemove={() => remove({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: false }, [{ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: true }])} />),
-          ...target.indicators.map(indicator => <IndicatorItem key={`${target.key}/${indicator.id}`} indicator={indicator} context={target.label} onChange={next => dispatch(indicatorAction(target, next, false))}
+          ...target.indicators.map(indicator => <IndicatorItem key={`${target.key}/${indicator.id}`} indicator={indicator} context={`Intermediate Outcome: ${target.statement}`} onChange={next => dispatch(indicatorAction(target, next, false))}
             onRemove={() => remove(custom ? { type: 'deleteCustomIoAdditionalIndicator', intermediateOutcomeId: target.ioId, indicatorId: indicator.id } : { type: 'deleteProjectSpecificIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, indicatorId: indicator.id }, [indicatorAction(target, indicator, true)])} />),
         ])}
       </ul>
@@ -175,7 +185,7 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
           {targets.map(target => {
             const available = getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id))
             return <section className="guided-indicator-group" key={target.key}>
-              <h3>{target.label}</h3>
+              <h3>Intermediate Outcome: {target.statement}</h3>
               {available.length ? <ul>{available.map(i => <li key={i.id}>
                 <p>{i.text}</p>
                 <button className="button secondary" aria-label={`Add: ${i.text}`} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add indicator</button>

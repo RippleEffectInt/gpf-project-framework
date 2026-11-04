@@ -73,6 +73,9 @@ describe('guided configuration', () => {
     expect(screen.getByRole('textbox', { name: 'Planned quantity' })).toHaveValue('12')
     expect(current().projectPathways).toEqual(prepared.projectPathways)
     expect(screen.getAllByText('Supports Outcome/s:')[0]!).toBeVisible()
+    const quantity = screen.getByRole('textbox', { name: 'Planned quantity' })
+    const done = screen.getByRole('button', { name: 'Done editing' })
+    expect(quantity.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     fireEvent.change(screen.getByRole('textbox', { name: 'Planned quantity' }), { target: { value: '7' } })
     const activity = current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities[0]!
     expect(activity).toMatchObject({ plannedQuantity: 7, useProjectSelfHelpGroupTotal: false })
@@ -87,8 +90,12 @@ describe('guided configuration', () => {
     expect(screen.getByRole('heading', { name: /^Outcome 1:/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
     const count = initial.projectPathways[0]!.intermediateOutcomeConfigurations.length
-    expect(screen.getAllByText('Required Primary indicator')).toHaveLength(count + 1)
-    expect(screen.getAllByText(/Intermediate Outcome: /)).toHaveLength(count)
+    const table = screen.getByRole('table', { name: 'Required Primary Indicators' })
+    expect(within(table).getAllByRole('row')).toHaveLength(count + 2)
+    expect(within(table).getAllByRole('cell', { name: 'Intermediate Outcome' })).toHaveLength(count)
+    expect(within(table).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(table).queryByRole('textbox')).not.toBeInTheDocument()
+    expect(within(table).getByRole('rowheader', { name: data.finalOutcomes.find(o => o.id === initial.selectedFinalOutcomeIds[0])!.statement })).toBeVisible()
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => io.additionalIndicators.length === 0)).toBe(true)
   })
 
@@ -194,7 +201,7 @@ describe('guided configuration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add suggested indicators' }))
     const suggested = screen.getAllByRole('button', { name: /^Add: / })[0]!
     expect(suggested.closest('li')).toBeTruthy()
-    expect(suggested.closest('section')?.querySelector('h3')).toBeTruthy()
+    expect(suggested.closest('section')?.querySelector('h3')?.textContent).toMatch(/^Intermediate Outcome: /)
     fireEvent.click(suggested)
     expect(screen.getAllByRole('button', { name: 'Remove indicator' })).toHaveLength(1)
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.reduce((n, io) => n + io.additionalIndicators.length, 0)).toBe(1)
@@ -222,9 +229,10 @@ describe('guided configuration', () => {
     expect(current().customInnovation!.pathway.intermediateOutcomes[0]!.activities[0]).toMatchObject({ wording: 'Revised community visit', outputTextOverride: 'Twelve community visits', projectDetails: 'Original detail' })
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
     expect(scoped.queryByRole('button', { name: 'Remove indicator' })).not.toBeInTheDocument()
-    const required = scoped.getByText('Required custom IO measure', { selector: 'p' }).closest('li')!
-    fireEvent.click(within(required).getByRole('button', { name: 'Edit' }))
-    fireEvent.change(within(required).getByRole('textbox', { name: 'Indicator wording' }), { target: { value: 'Revised required measure' } })
+    const required = scoped.getByRole('table', { name: 'Required Primary Indicators' })
+    expect(within(required).getByRole('cell', { name: 'Required custom IO measure' })).toBeVisible()
+    expect(within(required).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(required).queryByRole('textbox')).not.toBeInTheDocument()
     const edited = current()
     const saved = serializeProject({ id: 'simple-guided-roundtrip', status: 'Draft', design: edited, framework: data })
     expect(loadPersistedProject(saved, data).design.customInnovation).toEqual(edited.customInnovation)

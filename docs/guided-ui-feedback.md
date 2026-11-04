@@ -42,3 +42,11 @@ Each standard or custom Final Outcome now offers an optional custom indicator ed
 The optional `design.finalOutcomeIndicators` dictionary is keyed by Final Outcome ID, storing ID, wording and measurement notes. Older drafts without it load unchanged. Shared pathways do not duplicate these records. Deselecting a standard outcome retains its records without showing/exporting them; reselecting that same outcome restores access. Custom innovation records use their own unique outcome ID.
 
 Saved indicators appear in draft overview, final review and Theory of Change details. Indicator exports mark them Project-specific/Optional at Final Outcome level; donor-logframe exports include wording and notes. No SharePoint field changes or migration are required. Standard Final Outcome suggested-indicator selection remains outside this change.
+
+## Required indicator table and editor placement
+
+The guided activity editor now ends with Done editing, below notes and output fields. Required Primary Indicators are presented in a semantic, read-only table with outcome level, full outcome statement and indicator (including saved measurement notes). Custom innovation Primary measures are also read-only in this table; their existing advanced authoring controls remain intact. Tables have scoped headers and a keyboard-focusable horizontal scroll region for narrow screens. Shared pathway configuration remains displayed once with the existing link from other baskets.
+
+Optional suggested/selected Intermediate Outcome indicators identify their outcome level and statement. Custom Final Outcome indicator groups show the Final Outcome label and full statement. No required flags, saved data, defaults, persistence or export behavior change.
+
+Validation: 19 guided-design and draft-overview tests passed, including read-only required tables and editor control order; lint, TypeScript and production build passed. Browser visual verification remains unavailable in this environment.

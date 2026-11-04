@@ -3909,3 +3909,12 @@ label .field-error {
 .guided-indicator-group li { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; border-top: 1px solid #dce4df; }
 .guided-indicator-group li p { flex: 1 1 18rem; margin: 0; line-height: 1.5; }
 .guided-indicator-group li button { flex-shrink: 0; }
+
+.guided-required-table { overflow-x: auto; margin: 1.25rem 0; border: 1px solid #c9d8ce; border-radius: 0.5rem; }
+.guided-required-table table { width: 100%; min-width: 38rem; border-collapse: collapse; table-layout: fixed; }
+.guided-required-table caption { text-align: left; font-size: 1.2rem; font-weight: 700; padding: 1rem; color: #254c39; }
+.guided-required-table th, .guided-required-table td { text-align: left; vertical-align: top; padding: 1rem; border-top: 1px solid #c9d8ce; overflow-wrap: anywhere; line-height: 1.5; }
+.guided-required-table thead th { background: #edf4ee; }
+.guided-required-table thead th:first-child { width: 21%; }
+.guided-required-table tbody th { font-weight: 500; }
+.guided-required-table:focus-visible { outline: 3px solid #254c39; outline-offset: 2px; }

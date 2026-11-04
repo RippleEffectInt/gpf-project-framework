@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { useProjectDesign } from '../state/AppState'
+import { useFramework, useProjectDesign } from '../state/AppState'
 import type { ProjectSpecificIndicator } from '../types/project'
 
 export function FinalOutcomeIndicators({ outcomeId, editable = false }: { outcomeId: string; editable?: boolean }) {
   const { state, dispatch } = useProjectDesign()
+  const { data } = useFramework()
+  const statement = state.customInnovation?.id === outcomeId ? state.customInnovation.statement : data?.finalOutcomes.find(o => o.id === outcomeId)?.statement
   const [draft, setDraft] = useState<ProjectSpecificIndicator | null>(null)
   const [removed, setRemoved] = useState<ProjectSpecificIndicator | null>(null)
   const indicators = state.finalOutcomeIndicators?.[outcomeId] ?? []
   if (!editable && !indicators.length) return null
   return <section className="final-outcome-indicators">
     <h3>Custom Final Outcome indicators</h3>
+    <p><strong>Final Outcome:</strong> {statement || 'Outcome statement not entered yet'}</p>
     {editable && <p>Optional measures for this Final Outcome as a whole. These do not replace its required Primary indicator or the indicators for Intermediate Outcomes.</p>}
     <ul className="guided-items">{indicators.map(indicator => <li className="guided-list-item" key={indicator.id}>
       <p>{indicator.wording}</p>
