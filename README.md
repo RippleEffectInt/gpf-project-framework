@@ -365,3 +365,10 @@ Open **Configure pathways → Guided setup**. Prepare untouched steps, review th
 activity/output defaults, then switch to **Indicators & review**. The **Detailed
 setup** button inside this page reveals the full editors without losing draft
 form text. Save a draft at any time; confirm steps only after reviewing them.
+
+The guided pages now use plain Final Outcome lists. Each activity has its output
+underneath, with **Edit** and **Remove activity** controls and **Add custom
+activity** at the end. Indicators use the same simple layout; required indicators
+cannot be removed. Inline editors stay closed until requested, and custom entries
+explicitly select the Intermediate Outcome they support. The latest removal can
+be undone. Detailed setup remains available on the same project.

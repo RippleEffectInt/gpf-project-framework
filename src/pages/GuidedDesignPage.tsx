@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import { getFinalOutcome, getPathway, getPrimaryIndicatorForFinalOutcome, getIntermediateOutcomesInCausalOrder } from '../services/frameworkService'
-import { displayedOutputText } from '../state/activityOutputs'
+import { CustomInnovationPage } from './CustomInnovationPage'
+import { intermediateOutcomeHasRequiredActivity, projectDesignReducer } from '../state/projectDesign'
+import { GuidedOutcomeList } from '../components/GuidedOutcomeList'
 import { guidedPreparationActions } from '../state/guidedDesign'
 import { canContinueToConfigure } from '../state/journeySelectors'
 import { IntermediateOutcomeConfigurationCard } from './PathwayConfigurationPage'
@@ -17,12 +19,13 @@ export function GuidedDesignPage() {
   if (!canContinueToConfigure(state)) return <div className="page-container"><h1>Choose Primary pathways first</h1><Link to="/design/outcomes">Return to outcomes</Link></div>
   const actions = guidedPreparationActions(data, state)
   const total = state.metadata.plannedSelfHelpGroupCount
+  const completionReady = state.projectPathways.length > 0 && state.projectPathways.every(p => p.intermediateOutcomeConfigurations.length > 0 && p.intermediateOutcomeConfigurations.every(io => io.primaryIndicator && intermediateOutcomeHasRequiredActivity(io)))
   const owner = new Map(state.projectPathways.map(pathway => [pathway.pathwayId,
     state.selectedFinalOutcomeIds.find(id => state.outcomePathwayLinks.some(link => link.pathwayId === pathway.pathwayId && link.finalOutcomeId === id))]))
   return <div className="page-container configuration-page guided-setup">
     <DesignProgress current="configure" />
     <h1>Guided setup</h1>
-    <p>One project, two ways to edit. Detailed setup uses the same selections and values. Add custom entries before leaving this page; unfinished new-entry form text is not saved.</p>
+    <p>Review your activities and outputs, then your indicators. Edits use the same project as detailed setup. Add new custom entries before leaving this page to keep them in the saved draft.</p>
     <Link className="button secondary" to="/design/configure">Return to pathways</Link>
     <div className="page-actions">
       <button className="button secondary" aria-pressed={phase === 'activities'} onClick={() => setPhase('activities')}>1. Activities &amp; outputs</button>
@@ -31,57 +34,56 @@ export function GuidedDesignPage() {
       <button className="button secondary" disabled={saveStatus === 'saving'} onClick={async () => setMessage(await saveProject() ? 'Draft saved.' : 'Save failed. Your edits remain here; try again.')}>Save guided draft</button>
     </div>
     <p role="status">{message}</p>
-    <section hidden={phase !== 'activities'} className="state-panel">
-      <h2>Prepare editable activity defaults</h2>
-      <p>Include all suggested activities for steps with no activities yet. Existing selections, custom activities and reviewed steps are preserved. This does not mark the design complete.</p>
-      <p>{total && total > 0 ? `The starting quantity is ${total} Self Help Groups from Project details. These are group-reach defaults, not numbers of people, events or facilities. Review every activity and change its quantity and unit where needed.` : 'No positive group count is set. Activities will be included with quantities and units left blank.'} Remove activities that are not relevant. Missing output wording still needs your input.</p>
-      <p>Linked SHG quantities follow changes to the project group total. Manually edited quantities can be independent; check any numbers in custom output wording separately.</p>
-      <button className="button primary" disabled={!actions.length} onClick={() => {
+    <details hidden={phase !== 'activities'} className="guided-preparation">
+      <summary>Prepare suggested activities{actions.length ? ` (${actions.length} available)` : ''}</summary>
+      <p>Fill untouched steps only; existing work is preserved. Defaults remain drafts requiring review.</p>
+      <p>{total && total > 0 ? `Start with ${total} Self Help Groups. Review each quantity and unit; groups are not counts of people or events.` : 'No group count is set. New quantities and units will be blank.'}</p>
+      <button className="button secondary" disabled={!actions.length} onClick={() => {
         actions.forEach(dispatch)
         setMessage(`Added ${actions.length} suggested activities with editable defaults. Review these before confirming steps.`)
       }}>Prepare untouched steps</button>
-      <Link to="/design/details">Edit project group count</Link>
-    </section>
-    <section hidden={phase !== 'indicators'}>
-      <h2>Consolidated indicator review</h2>
-      <p>Required Primary indicators stay included. Review optional indicators and add project-specific indicators under the relevant Intermediate Outcome. Standard Final Outcome custom indicators are not supported. Group counts are not indicator targets.</p>
-      <p>Review activities and outputs before confirming each step below. Final review and export keep their existing checks.</p>
-    </section>
+    </details>
     {state.selectedFinalOutcomeIds.map(outcomeId => {
       const outcome = getFinalOutcome(data, outcomeId)
       const primary = getPrimaryIndicatorForFinalOutcome(data, outcomeId)
       const links = state.outcomePathwayLinks.filter(link => link.finalOutcomeId === outcomeId)
-      return <section key={outcomeId} className="configuration-overview-card">
+      return <section id={`guided-outcome-${outcomeId}`} key={outcomeId} className="configuration-overview-card">
         <h2>{outcome?.statement ?? outcomeId}</h2>
-        <div hidden={phase !== 'indicators'} className="mandatory-selection"><strong>Final Outcome Primary indicator · Required</strong><p>{primary?.text ?? 'Primary indicator missing — framework review required.'}</p></div>
+        {links.filter(link => owner.get(link.pathwayId) === outcomeId && state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId).length > 1).map(link => <p className="guided-shared-note" key={link.pathwayId}>Shared activities also support {state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId && other.finalOutcomeId !== outcomeId).map(other => getFinalOutcome(data, other.finalOutcomeId)?.shortLabel ?? other.finalOutcomeId).join(', ')}. Edits and removals apply to every linked outcome.</p>)}
+        <GuidedOutcomeList phase={phase} pathwayIds={links.filter(link => owner.get(link.pathwayId) === outcomeId).map(link => link.pathwayId)} primary={{ id: primary?.id ?? '', wording: primary?.text ?? 'Required Primary indicator missing', measurementNotes: '' }} />
         {links.map(link => {
           const pathway = state.projectPathways.find(item => item.pathwayId === link.pathwayId)
           if (!pathway) return <p key={link.pathwayId} role="alert">Pathway configuration missing.</p>
-          if (owner.get(pathway.pathwayId) !== outcomeId) return <p key={pathway.pathwayId}>Shared pathway: <a href={`#guided-${pathway.pathwayId}`}>{getPathway(data, pathway.pathwayId)?.name ?? pathway.pathwayId}</a>. Edit its single configuration above; changes apply to all linked outcomes.</p>
-          return <section id={`guided-${pathway.pathwayId}`} key={pathway.pathwayId}>
+          if (owner.get(pathway.pathwayId) !== outcomeId) return <p key={pathway.pathwayId}>Shared pathway: <a href={`#guided-outcome-${owner.get(pathway.pathwayId)}`}>{getPathway(data, pathway.pathwayId)?.name ?? pathway.pathwayId}</a>. Edit its single configuration above; changes apply to all linked outcomes.</p>
+          return <section id={`guided-${pathway.pathwayId}`} key={pathway.pathwayId} hidden={phase !== 'detailed'}>
             <h3>{getPathway(data, pathway.pathwayId)?.name ?? pathway.pathwayId}</h3>
             <p>Contributes to: {state.outcomePathwayLinks.filter(item => item.pathwayId === pathway.pathwayId).map(item => getFinalOutcome(data, item.finalOutcomeId)?.shortLabel ?? item.finalOutcomeId).join(', ')}. Shared activities are configured once.</p>
             <ol className="configuration-chain">{getIntermediateOutcomesInCausalOrder(data, pathway.pathwayId).map(io => {
               const configuration = pathway.intermediateOutcomeConfigurations.find(item => item.frameworkIntermediateOutcomeId === io.id)
-              return configuration ? <IntermediateOutcomeConfigurationCard key={io.id} data={data} pathwayId={pathway.pathwayId} outcome={io} configuration={configuration} mode={phase} /> : <li key={io.id} role="alert">Missing configuration for {io.statement}</li>
+              return configuration ? <IntermediateOutcomeConfigurationCard key={io.id} data={data} pathwayId={pathway.pathwayId} outcome={io} configuration={configuration} mode="detailed" /> : <li key={io.id} role="alert">Missing configuration for {io.statement}</li>
             })}</ol>
           </section>
         })}
       </section>
     })}
-    {state.customInnovation && <section className="state-panel">
+    {state.customInnovation && <section className="configuration-overview-card">
       <h2>{state.customInnovation.shortLabel || 'Custom innovation'}</h2>
-      <p>No standard defaults are invented for custom innovation. Use its editor to change or add activities, outputs and indicators.</p>
-      <div hidden={phase === 'activities'}><strong>Final Outcome Primary indicator · Required</strong><p>{state.customInnovation.primaryIndicator.wording || 'Not entered yet'}</p></div>
-      {state.customInnovation.pathway.intermediateOutcomes.map(io => <section key={io.id}>
-        <h3>{io.statement || 'Untitled custom Intermediate Outcome'}</h3>
-        <div hidden={phase === 'activities'}><strong>Primary indicator · Required</strong><p>{io.primaryIndicator.wording || 'Not entered yet'}</p>
-          <ul>{io.additionalIndicators.map(indicator => <li key={indicator.id}>{indicator.wording} — {indicator.measurementNotes}</li>)}</ul>
-        </div>
-        <div hidden={phase === 'indicators'}><ul>{io.activities.map(activity => <li key={activity.id}>{activity.wording} — {displayedOutputText(activity) ?? 'Output needs review'}</li>)}</ul>{!io.activities.length && <p>No activities yet.</p>}</div>
-      </section>)}
-      <Link to="/design/custom-innovation">Edit / add custom innovation activities and indicators</Link>
+      <GuidedOutcomeList phase={phase} custom primary={state.customInnovation.primaryIndicator} />
+      <div hidden={phase !== 'detailed'}><CustomInnovationPage /></div>
     </section>}
+    <div hidden={phase !== 'indicators'} className="guided-completion">
+      <p>Confirm after reviewing your activities, outputs and indicators. Every Intermediate Outcome still needs an activity and its required indicator.</p>
+      {!completionReady && <details><summary>Show steps still needing attention</summary><ul>{state.projectPathways.flatMap(p => getIntermediateOutcomesInCausalOrder(data, p.pathwayId).flatMap(io => {
+        const config = p.intermediateOutcomeConfigurations.find(c => c.frameworkIntermediateOutcomeId === io.id)
+        return config?.primaryIndicator && intermediateOutcomeHasRequiredActivity(config) ? [] : [<li key={`${p.pathwayId}/${io.id}`}>{io.statement}: {config?.primaryIndicator ? 'add an activity' : 'required indicator/configuration missing'}</li>]
+      }))}</ul></details>}
+      <button className="button secondary" disabled={!completionReady || saveStatus === 'saving'} onClick={async () => {
+        const changes = state.projectPathways.map(p => ({ type: 'markPathwayConfigured' as const, pathwayId: p.pathwayId }))
+        const next = changes.reduce(projectDesignReducer, state)
+        changes.forEach(dispatch)
+        setMessage(await saveProject(next) ? 'Reviewed pathways saved. Continue to final review when ready.' : 'Could not save. Your work remains here; try saving again.')
+      }}>Confirm reviewed pathways</button>
+    </div>
     <div className="page-actions">
       {phase === 'activities' ? <button className="button primary" onClick={() => setPhase('indicators')}>Continue to indicators</button> : <Link className="button primary" to="/design/configure">Check completion and continue to final review</Link>}
     </div>

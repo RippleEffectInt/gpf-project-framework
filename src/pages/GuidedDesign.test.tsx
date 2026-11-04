@@ -1,12 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { CURRENT_FRAMEWORK as data } from '../data/frameworkRegistry'
 import { getIntermediateOutcomesInCausalOrder, getPrimaryIndicatorForIntermediateOutcome } from '../services/frameworkService'
 import { initialProjectDesignState, projectDesignReducer, getPathwayConfigurationStatus } from '../state/projectDesign'
 import { guidedPreparationActions } from '../state/guidedDesign'
-import { FrameworkProvider, ProjectDesignProvider } from '../state/AppState'
+import { FrameworkProvider, ProjectDesignProvider, useProjectDesign } from '../state/AppState'
 import { GuidedDesignPage } from './GuidedDesignPage'
+import { createBlankCustomInnovation } from '../state/customInnovation'
 import { serializeProject, loadPersistedProject } from '../persistence/projectSerialization'
 
 function seed(total: number | null = 12) {
@@ -16,6 +17,19 @@ function seed(total: number | null = 12) {
     frameworkPrimaryFinalOutcomeId: pathway.primaryFinalOutcomeId, relationshipType: 'primary',
     intermediateOutcomes: getIntermediateOutcomesInCausalOrder(data, pathway.id).map(io => ({ frameworkIntermediateOutcomeId: io.id, primaryIndicatorId: getPrimaryIndicatorForIntermediateOutcome(data, io.id)?.id ?? null })),
   })
+}
+
+function StateProbe() {
+  const { state } = useProjectDesign()
+  return <output data-testid="design-state" hidden>{JSON.stringify(state)}</output>
+}
+function mount(state = seed()) {
+  return render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={state}><GuidedDesignPage /><StateProbe /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
+}
+function current() { return JSON.parse(screen.getByTestId('design-state').textContent!) as ReturnType<typeof seed> }
+function selectTarget() {
+  const select = screen.getByRole('combobox', { name: 'Supports Intermediate Outcome' }) as HTMLSelectElement
+  fireEvent.change(select, { target: { value: select.options[1]!.value } })
 }
 
 describe('guided configuration', () => {
@@ -52,51 +66,123 @@ describe('guided configuration', () => {
     io.projectSpecificActivities.push({ id: 'custom', wording: 'Custom work', projectDetails: '', plannedQuantity: 3, outputUnitSelection: 'events', customOutputUnit: null, useProjectSelfHelpGroupTotal: false, outputTextOverride: 'Three events' })
     expect(guidedPreparationActions(data, initial).some(action => 'intermediateOutcomeId' in action && action.intermediateOutcomeId === io.frameworkIntermediateOutcomeId)).toBe(false)
   })
-  it('shows shared pathways once and keeps all linked outcomes visible', () => {
-    const state = seed()
+  it('shows a plain selected-activity list; editing and removal preserve the associated output', () => {
+    const initial = seed()
+    const prepared = guidedPreparationActions(data, initial).reduce(projectDesignReducer, initial)
+    const first = prepared.projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities[0]!
+    first.projectNotes = 'Original note'
+    first.outputTextOverride = 'Original measurable output'
+    mount(prepared)
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Original measurable output')).toBeVisible()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Project notes' }), { target: { value: 'Updated note' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove activity' })[0]!)
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities.some(a => a.frameworkActivityId === first.frameworkActivityId)).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo removal' }))
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities.find(a => a.frameworkActivityId === first.frameworkActivityId)).toMatchObject({ ...first, projectNotes: 'Updated note' })
+  })
+  it('edits a shared pathway once and links the other outcome to its visible owner', () => {
+    const initial = seed()
+    const state = guidedPreparationActions(data, initial).reduce(projectDesignReducer, initial)
     const other = data.finalOutcomes.find(o => o.id !== state.selectedFinalOutcomeIds[0])!
     state.selectedFinalOutcomeIds.push(other.id)
     state.outcomePathwayLinks.push({ finalOutcomeId: other.id, pathwayId: 'PW_026', relationshipType: 'primary' })
-    render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={state}><GuidedDesignPage /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
-    expect(screen.getAllByLabelText('Activity wording *')).toHaveLength(state.projectPathways[0]!.intermediateOutcomeConfigurations.length)
-    expect(screen.getByText(/Edit its single configuration above/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: other.statement })).toBeInTheDocument()
+    mount(state)
+    const count = state.projectPathways[0]!.intermediateOutcomeConfigurations.reduce((sum, io) => sum + io.standardActivities.length, 0)
+    expect(screen.getAllByRole('button', { name: 'Remove activity' })).toHaveLength(count)
+    const link = screen.getByRole('link', { name: data.pathways.find(p => p.id === 'PW_026')!.name })
+    expect(link).toHaveAttribute('href', `#guided-outcome-${state.selectedFinalOutcomeIds[0]}`)
   })
-  it('supports custom activity and indicator additions without bypassing completion', () => {
-    render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={seed()}><GuidedDesignPage /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
-    const activity = screen.getAllByLabelText('Activity wording *')[0]!
-    fireEvent.change(activity, { target: { value: 'Local demonstration activity' } })
-    fireEvent.submit(activity.closest('form')!)
-    expect(screen.getByText('Local demonstration activity')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    const completion = screen.getAllByRole('button', { name: 'Done with this step' })
-    expect(completion[0]).toBeEnabled()
-    expect(completion[1]).toBeDisabled()
-    fireEvent.click(screen.getAllByText('Do you wish to add any project-specific indicators for this Intermediate Outcome?')[0]!)
-    const indicator = screen.getAllByLabelText('Indicator wording *')[0]!
-    fireEvent.change(indicator, { target: { value: 'Locally defined additional measure' } })
-    fireEvent.submit(indicator.closest('form')!)
-    expect(screen.getByText('Locally defined additional measure')).toBeInTheDocument()
+  it('preserves new-entry drafts across simple stages and detailed setup, and attaches additions explicitly', () => {
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Add custom activity' }))
+    selectTarget()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Local demonstration activity' } })
     fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
-    expect(screen.getByText('Locally defined additional measure')).toBeInTheDocument()
-    expect(screen.getByText('Local demonstration activity')).toBeInTheDocument()
-  })
-  it('keeps editors mounted between guided stages and detailed view; navigation never applies defaults', () => {
-    render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={seed()}><GuidedDesignPage /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
-    const prepare = screen.getByRole('button', { name: 'Prepare untouched steps' })
-    expect(prepare).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    const input = screen.getAllByLabelText('Indicator wording *')[0]!
-    fireEvent.change(input, { target: { value: 'Unsubmitted custom measure' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
-    expect(input).toHaveValue('Unsubmitted custom measure')
+    fireEvent.click(screen.getByRole('button', { name: 'Add custom indicator' }))
+    selectTarget()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Indicator wording *' }), { target: { value: 'Local measure' } })
     fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
-    expect(prepare).toBeEnabled()
-    fireEvent.click(prepare)
-    expect(prepare).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: 'Activity wording *' })).toHaveValue('Local demonstration activity')
+    fireEvent.click(screen.getByRole('button', { name: 'Add activity' }))
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificActivities[0]?.wording).toBe('Local demonstration activity')
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    expect(screen.getAllByLabelText('Indicator wording *')[0]).toBe(input)
-    expect(input).toHaveValue('Unsubmitted custom measure')
-    expect(screen.getByText(/Added .* suggested activities/)).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Indicator wording *' })).toHaveValue('Local measure')
+    fireEvent.click(screen.getByRole('button', { name: 'Add indicator' }))
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificIndicators[0]?.wording).toBe('Local measure')
+    expect(screen.getByRole('button', { name: 'Confirm reviewed pathways' })).toBeDisabled()
+    expect(screen.getAllByText('Required Primary indicator').length).toBeGreaterThan(0)
+    const custom = screen.getByRole('button', { name: 'Remove indicator' }).closest('li')!
+    fireEvent.click(within(custom).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(custom).getByRole('textbox', { name: 'Indicator wording' }), { target: { value: 'Revised local measure' } })
+    fireEvent.click(within(custom).getByRole('button', { name: 'Remove indicator' }))
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificIndicators).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo removal' }))
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificIndicators[0]?.wording).toBe('Revised local measure')
   })
+  it('does not populate or complete work on navigation and protects required indicators', () => {
+    mount()
+    fireEvent.click(screen.getByText(/Prepare suggested activities/))
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare untouched steps' }))
+    expect(screen.getByRole('button', { name: 'Prepare untouched steps' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    expect(screen.queryByRole('button', { name: 'Remove indicator' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => !io.reviewed)).toBe(true)
+    expect(screen.getByRole('button', { name: 'Confirm reviewed pathways' })).toBeEnabled()
+  })
+  it('supports custom innovation activity edits and undo while protecting its required indicators', () => {
+    const state = seed()
+    state.customInnovation = createBlankCustomInnovation()
+    const custom = state.customInnovation
+    custom.shortLabel = 'Synthetic custom outcome'
+    custom.primaryIndicator.wording = 'Required custom outcome measure'
+    const io = custom.pathway.intermediateOutcomes[0]!
+    io.statement = 'Synthetic custom intermediate outcome'
+    io.primaryIndicator.wording = 'Required custom IO measure'
+    io.activities.push({ id: 'synthetic-custom-activity', wording: 'Custom community visit', projectDetails: 'Original detail', outputTextOverride: 'Twelve community visits', plannedQuantity: 12, outputUnitSelection: 'events' })
+    mount(state)
+    const section = screen.getByRole('heading', { name: 'Synthetic custom outcome' }).closest('section')!
+    const scoped = within(section)
+    expect(scoped.getByText('Twelve community visits', { selector: 'p' })).toBeVisible()
+    fireEvent.click(scoped.getByRole('button', { name: 'Edit' }))
+    fireEvent.change(scoped.getByRole('textbox', { name: 'Activity wording' }), { target: { value: 'Revised community visit' } })
+    fireEvent.click(scoped.getByRole('button', { name: 'Remove activity' }))
+    expect(current().customInnovation!.pathway.intermediateOutcomes[0]!.activities).toHaveLength(0)
+    fireEvent.click(scoped.getByRole('button', { name: 'Undo removal' }))
+    expect(current().customInnovation!.pathway.intermediateOutcomes[0]!.activities[0]).toMatchObject({ wording: 'Revised community visit', outputTextOverride: 'Twelve community visits', projectDetails: 'Original detail' })
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    expect(scoped.queryByRole('button', { name: 'Remove indicator' })).not.toBeInTheDocument()
+    const required = scoped.getByText('Required custom IO measure', { selector: 'p' }).closest('li')!
+    fireEvent.click(within(required).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(required).getByRole('textbox', { name: 'Indicator wording' }), { target: { value: 'Revised required measure' } })
+    const edited = current()
+    const saved = serializeProject({ id: 'simple-guided-roundtrip', status: 'Draft', design: edited, framework: data })
+    expect(loadPersistedProject(saved, data).design.customInnovation).toEqual(edited.customInnovation)
+  })
+
+  it('keeps an open advanced activity editor synchronized with simple edits', () => {
+    const state = seed()
+    state.projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificActivities.push({ id: 'shared-edit', wording: 'Shared edit activity', projectDetails: 'Initial notes', outputTextOverride: 'Existing output' })
+    mount(state)
+    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
+    const details = document.querySelector('details.io-configuration-card') as HTMLDetailsElement
+    details.open = true
+    fireEvent(details, new Event('toggle'))
+    const record = within(details).getByText('Shared edit activity', { selector: 'p' }).closest('li')!
+    fireEvent.click(within(record).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(details).getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Advanced wording' } })
+    fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Project notes' }), { target: { value: 'Simple notes' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
+    expect(within(details).getByRole('textbox', { name: 'Activity wording *' })).toHaveValue('Advanced wording')
+    expect(within(details).getByRole('textbox', { name: 'Project-specific details/notes — optional' })).toHaveValue('Simple notes')
+    fireEvent.change(within(details).getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Latest wording' } })
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificActivities[0]).toMatchObject({ wording: 'Latest wording', projectDetails: 'Simple notes', outputTextOverride: 'Existing output' })
+  })
+
 })

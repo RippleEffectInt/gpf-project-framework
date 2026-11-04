@@ -3867,3 +3867,15 @@ label .field-error {
 .guided-setup [hidden] { display: none !important; }
 .guided-setup .page-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
 .guided-setup .configuration-overview-card { display: block; margin: 1rem 0; }
+
+.guided-items { list-style: none; padding: 0; margin: 0; }
+.guided-list-item { padding: 1.25rem 0; border-bottom: 1px solid #dce4df; }
+.guided-item-title { font-weight: 600; margin: 0 0 0.5rem; }
+.guided-output { margin: 0.4rem 0; color: #43564a; }
+.guided-item-actions { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 0.75rem; }
+.guided-inline-editor { display: grid; gap: 1rem; padding: 1rem; margin-top: 1rem; background: #f4f7f5; border-radius: 0.5rem; }
+.guided-inline-editor label { display: grid; gap: 0.35rem; }
+.guided-inline-editor input, .guided-inline-editor textarea, .guided-inline-editor select { width: 100%; min-width: 0; }
+.guided-simple-list > div > .button { margin-top: 1rem; }
+.guided-preparation, .guided-available { margin: 1rem 0; }
+.guided-available .text-button { display: block; margin: 0.75rem 0; text-align: left; }

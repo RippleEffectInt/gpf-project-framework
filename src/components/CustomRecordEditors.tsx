@@ -115,7 +115,7 @@ export function CustomAdditionalIndicatorsEditor({
         <label>
           <span>Indicator wording *</span>
           <input
-            value={wording}
+            value={editingId ? indicators.find(item => item.id === editingId)?.wording ?? wording : wording}
             onChange={(event) => {
               const value = event.target.value
               setWording(value)
@@ -126,7 +126,7 @@ export function CustomAdditionalIndicatorsEditor({
                   indicator: {
                     id: editingId,
                     wording: value,
-                    measurementNotes,
+                    measurementNotes: indicators.find(item => item.id === editingId)?.measurementNotes ?? measurementNotes,
                   },
                 })
               }
@@ -138,7 +138,7 @@ export function CustomAdditionalIndicatorsEditor({
           <span>Measurement / definition notes</span>
           <textarea
             rows={2}
-            value={measurementNotes}
+            value={editingId ? indicators.find(item => item.id === editingId)?.measurementNotes ?? measurementNotes : measurementNotes}
             onChange={(event) => {
               const value = event.target.value
               setMeasurementNotes(value)
@@ -148,7 +148,7 @@ export function CustomAdditionalIndicatorsEditor({
                   intermediateOutcomeId,
                   indicator: {
                     id: editingId,
-                    wording,
+                    wording: indicators.find(item => item.id === editingId)?.wording ?? wording,
                     measurementNotes: value,
                   },
                 })
@@ -308,7 +308,7 @@ export function CustomActivitiesEditor({
           <label>
             <span>Activity wording *</span>
             <input
-              value={editingId ? editWording : draftWording}
+              value={editingId ? activities.find(item => item.id === editingId)?.wording ?? editWording : draftWording}
               onChange={(event) => {
                 const value = event.target.value
                 if (!editingId) {
@@ -326,7 +326,7 @@ export function CustomActivitiesEditor({
                     ...current,
                     id: editingId,
                     wording: value,
-                    projectDetails: editProjectDetails,
+                    projectDetails: current?.projectDetails ?? editProjectDetails,
                   },
                 })
               }}
@@ -338,7 +338,7 @@ export function CustomActivitiesEditor({
             <textarea
               rows={2}
               value={
-                editingId ? editProjectDetails : draftProjectDetails
+                editingId ? activities.find(item => item.id === editingId)?.projectDetails ?? editProjectDetails : draftProjectDetails
               }
               onChange={(event) => {
                 const value = event.target.value
@@ -356,7 +356,7 @@ export function CustomActivitiesEditor({
                   activity: {
                     ...current,
                     id: editingId,
-                    wording: editWording,
+                    wording: current?.wording ?? editWording,
                     projectDetails: value,
                   },
                 })
