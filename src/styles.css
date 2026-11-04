@@ -3885,3 +3885,17 @@ label .field-error {
 .setup-choice h3 { font-size: 1.35rem; margin-top: 0; }
 .setup-mode-switch { border-bottom: 2px solid #c9d8ce; padding-bottom: 1rem; }
 .setup-mode-switch [aria-pressed="true"] { background: #254c39; color: #fff; }
+
+/* Guided design: aligned choices and readable activity/output editing. */
+.setup-choice { display: flex; flex-direction: column; align-items: flex-start; }
+.setup-choice > .button { margin-top: auto; }
+.guided-setup .page-actions { align-items: center; }
+.guided-output, .guided-inline-editor .planned-output-text { font-size: 1.1rem; line-height: 1.6; color: #254c39; background: #edf4ee; padding: 0.85rem 1rem; border-left: 3px solid #62866c; }
+.guided-context, .field-guidance { line-height: 1.5; color: #43564a; }
+.guided-inline-editor .planned-output-fields { align-items: start; }
+.guided-inline-editor .planned-output-fields label { align-content: start; }
+.guided-inline-editor .checkbox-option { display: flex; align-items: center; gap: 0.65rem; }
+.guided-inline-editor input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+.guided-inline-editor h4 { margin: 0; font-size: 1.1rem; }
+
+.guided-inline-editor .planned-output-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }

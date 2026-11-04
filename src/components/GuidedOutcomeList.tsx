@@ -21,8 +21,10 @@ function ActivityItem({ activity, standard, fixedWording = false, context, onCha
       <button type="button" className="text-button" onClick={onRemove}>Remove activity</button>
     </div>
     <div className="guided-inline-editor" hidden={!editing}>
-      <p>{context}</p>
-      {fixedWording ? <p>Standard activity wording is fixed. Edit project notes and its output below.</p> : <label>Activity wording<input value={activity.wording} onChange={e => onChange({ ...activity, wording: e.target.value })} /></label>}
+      <p className="guided-context"><strong>Supports:</strong> {context}</p>
+      {!fixedWording && <p className="field-guidance">Activity wording: describe what your team will do, using a clear action such as train, establish or facilitate.</p>}
+      {fixedWording ? <p>Standard activity wording is fixed to keep the framework consistent. Use project notes to explain how you will deliver it, then check the planned output below.</p> : <label>Activity wording<input value={activity.wording} onChange={e => onChange({ ...activity, wording: e.target.value })} /></label>}
+      <p className="field-guidance">Project notes are optional: describe who will take part, where and when the activity will happen, and any local adaptations.</p>
       <label>Project notes<textarea value={activity.projectDetails} onChange={e => onChange({ ...activity, projectDetails: e.target.value })} /></label>
       <PlannedOutputEditor planning={normalizeActivityOutput(activity)} activity={standard} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => onChange({ ...activity, ...output })} />
     </div>
@@ -37,6 +39,7 @@ function IndicatorItem({ indicator, required = false, context, onChange, onRemov
   return <li className="guided-list-item">
     <p className="guided-item-title">{indicator.wording || 'Indicator not entered yet'}</p>
     {required && <span className="lock-label">Required Primary indicator</span>}
+    <p className="guided-context"><strong>Measures:</strong> {context}</p>
     {indicator.measurementNotes && <p>{indicator.measurementNotes}</p>}
     <div className="guided-item-actions">
       {onChange && <button type="button" className="text-button" onClick={() => setEditing(!editing)}>{editing ? 'Done editing' : 'Edit'}</button>}
@@ -44,6 +47,7 @@ function IndicatorItem({ indicator, required = false, context, onChange, onRemov
     </div>
     {onChange && <div className="guided-inline-editor" hidden={!editing}>
       <p>{context}</p>
+      <p>Describe the measurable change you will track. In measurement notes, explain how, when and from what source you will collect the information.</p>
       <label>Indicator wording<input value={indicator.wording} onChange={e => onChange({ ...indicator, wording: e.target.value })} /></label>
       <label>Measurement notes<textarea value={indicator.measurementNotes} onChange={e => onChange({ ...indicator, measurementNotes: e.target.value })} /></label>
     </div>}
@@ -128,7 +132,9 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
         dispatch(activityAction(target, { ...activityDraft, id: crypto.randomUUID(), wording: activityDraft.wording.trim() }, true))
         setActivityDraft({ id: '', wording: '', projectDetails: '', ...createActivityOutputPlanning() }); setAddingActivity(false)
       }}>
+        <p>Choose the Intermediate Outcome this new item will support. It will be saved with that step in the pathway.</p>
         <label>Supports Intermediate Outcome<select required value={activityTarget} onChange={e => setActivityTarget(e.target.value)}><option value="">Choose an Intermediate Outcome</option>{targets.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></label>
+        <p>Describe the action your team will carry out. Use project notes for optional delivery details such as participants, location and timing.</p>
         <label>Activity wording *<input required value={activityDraft.wording} onChange={e => setActivityDraft({ ...activityDraft, wording: e.target.value })} /></label>
         <label>Project notes<textarea value={activityDraft.projectDetails} onChange={e => setActivityDraft({ ...activityDraft, projectDetails: e.target.value })} /></label>
         <PlannedOutputEditor planning={normalizeActivityOutput(activityDraft)} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => setActivityDraft({ ...activityDraft, ...output })} />
@@ -137,10 +143,11 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
       {!custom && <details className="guided-available"><summary>Add a suggested activity</summary>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getSuggestedActivitiesForIntermediateOutcome(data, target.ioId).filter(a => !target.standardActivities.some(s => s.frameworkActivityId === a.id)).map(a => <button className="text-button" key={a.id} onClick={() => dispatch({ type: 'setStandardActivity', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkActivityId: a.id, selected: true })}>Add: {a.text}</button>)}</div>)}</details>}
     </div>
     <div hidden={phase !== 'indicators'}>
+      <p className="neutral-note">The framework requires one Primary indicator for the Final Outcome and one for each Intermediate Outcome below. Suggested and custom indicators are optional.</p>
       <ul className="guided-items">
         {primary && <IndicatorItem indicator={primary} required context="Final Outcome" onChange={custom ? indicator => dispatch({ type: 'setCustomOutcomePrimaryIndicator', indicator }) : undefined} />}
         {targets.flatMap(target => [
-          <IndicatorItem key={`${target.key}/primary`} indicator={target.primary} required context={target.label} onChange={custom ? indicator => dispatch({ type: 'setCustomIoPrimaryIndicator', intermediateOutcomeId: target.ioId, indicator }) : undefined} />,
+          <IndicatorItem key={`${target.key}/primary`} indicator={target.primary} required context={`Intermediate Outcome: ${target.label}`} onChange={custom ? indicator => dispatch({ type: 'setCustomIoPrimaryIndicator', intermediateOutcomeId: target.ioId, indicator }) : undefined} />,
           ...target.optional.map(selection => <IndicatorItem key={`${target.key}/${selection.frameworkIndicatorId}`} indicator={{ id: selection.frameworkIndicatorId, wording: getIndicator(data, selection.frameworkIndicatorId)?.text ?? selection.frameworkIndicatorId, measurementNotes: '' }} context={target.label}
             onRemove={() => remove({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: false }, [{ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: true }])} />),
           ...target.indicators.map(indicator => <IndicatorItem key={`${target.key}/${indicator.id}`} indicator={indicator} context={target.label} onChange={next => dispatch(indicatorAction(target, next, false))}
@@ -154,8 +161,10 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
         dispatch(indicatorAction(target, { ...indicatorDraft, id: crypto.randomUUID(), wording: indicatorDraft.wording.trim() }, true))
         setIndicatorDraft({ id: '', wording: '', measurementNotes: '' }); setAddingIndicator(false)
       }}>
+        <p>Choose the Intermediate Outcome this new item will support. It will be saved with that step in the pathway.</p>
         <label>Supports Intermediate Outcome<select required value={indicatorTarget} onChange={e => setIndicatorTarget(e.target.value)}><option value="">Choose an Intermediate Outcome</option>{targets.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></label>
-        <label>Indicator wording *<input required value={indicatorDraft.wording} onChange={e => setIndicatorDraft({ ...indicatorDraft, wording: e.target.value })} /></label>
+        <p>Describe the measurable change you will track. In measurement notes, explain how, when and from what source you will collect the information.</p>
+      <label>Indicator wording *<input required value={indicatorDraft.wording} onChange={e => setIndicatorDraft({ ...indicatorDraft, wording: e.target.value })} /></label>
         <label>Measurement notes<textarea value={indicatorDraft.measurementNotes} onChange={e => setIndicatorDraft({ ...indicatorDraft, measurementNotes: e.target.value })} /></label>
         <button className="button primary" type="submit">Add indicator</button>
       </form>

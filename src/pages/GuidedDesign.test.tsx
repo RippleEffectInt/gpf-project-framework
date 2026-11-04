@@ -34,6 +34,18 @@ function selectTarget() {
 }
 
 describe('guided configuration', () => {
+  it('labels outcome levels and keeps the exact canonical primary indicators', () => {
+    const initial = seed()
+    mount(initial, true)
+    expect(screen.getByRole('heading', { name: 'Activities and Outputs for each Outcome' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^Outcome 1:/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    const count = initial.projectPathways[0]!.intermediateOutcomeConfigurations.length
+    expect(screen.getAllByText('Required Primary indicator')).toHaveLength(count + 1)
+    expect(screen.getAllByText(/Intermediate Outcome: /)).toHaveLength(count)
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => io.additionalIndicators.length === 0)).toBe(true)
+  })
+
   it('creates editable group defaults once, keeps primary indicators and requires review', () => {
     const initial = seed()
     const actions = guidedPreparationActions(data, initial)
@@ -145,7 +157,7 @@ describe('guided configuration', () => {
     io.primaryIndicator.wording = 'Required custom IO measure'
     io.activities.push({ id: 'synthetic-custom-activity', wording: 'Custom community visit', projectDetails: 'Original detail', outputTextOverride: 'Twelve community visits', plannedQuantity: 12, outputUnitSelection: 'events' })
     mount(state)
-    const section = screen.getByRole('heading', { name: 'Synthetic custom outcome' }).closest('section')!
+    const section = screen.getByRole('heading', { name: /Outcome \d+: Synthetic custom outcome/ }).closest('section')!
     const scoped = within(section)
     expect(scoped.getByText('Twelve community visits', { selector: 'p' })).toBeVisible()
     fireEvent.click(scoped.getByRole('button', { name: 'Edit' }))

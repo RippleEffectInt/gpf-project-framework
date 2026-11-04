@@ -42,12 +42,14 @@ export function GuidedDesignPage() {
     <p role="status">{message}</p>
     <p hidden={phase !== 'activities'} className="neutral-note">{state.guidedInitializedStepKeys ? 'Suggested activities are included automatically once for untouched steps in new designs.' : 'Existing draft selections are preserved; use Add a suggested activity to include more.'} {total && total > 0 ? `New output defaults use ${total} Self Help Groups; review quantities, units and wording.` : 'No group count is set, so quantities and units need your review.'}</p>
     <p hidden={phase !== 'indicators'} className="neutral-note">New designs start with required Primary indicators only. Add suggested or custom indicators below. Existing selections are preserved.</p>
-    {state.selectedFinalOutcomeIds.map(outcomeId => {
+    <h2 hidden={phase !== 'activities'}>Activities and Outputs for each Outcome</h2>
+    <h2 hidden={phase !== 'indicators'}>Indicators for each Outcome</h2>
+    {state.selectedFinalOutcomeIds.map((outcomeId, outcomeIndex) => {
       const outcome = getFinalOutcome(data, outcomeId)
       const primary = getPrimaryIndicatorForFinalOutcome(data, outcomeId)
       const links = state.outcomePathwayLinks.filter(link => link.finalOutcomeId === outcomeId)
       return <section id={`guided-outcome-${outcomeId}`} key={outcomeId} className="configuration-overview-card">
-        <h2>{outcome?.statement ?? outcomeId}</h2>
+        <h2>Outcome {outcomeIndex + 1}: {outcome?.statement ?? outcomeId}</h2>
         {links.filter(link => owner.get(link.pathwayId) === outcomeId && state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId).length > 1).map(link => <p className="guided-shared-note" key={link.pathwayId}>Shared activities also support {state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId && other.finalOutcomeId !== outcomeId).map(other => getFinalOutcome(data, other.finalOutcomeId)?.shortLabel ?? other.finalOutcomeId).join(', ')}. Edits and removals apply to every linked outcome.</p>)}
         <GuidedOutcomeList phase={phase} pathwayIds={links.filter(link => owner.get(link.pathwayId) === outcomeId).map(link => link.pathwayId)} primary={{ id: primary?.id ?? '', wording: primary?.text ?? 'Required Primary indicator missing', measurementNotes: '' }} />
         {links.map(link => {
@@ -66,7 +68,7 @@ export function GuidedDesignPage() {
       </section>
     })}
     {state.customInnovation && <section className="configuration-overview-card">
-      <h2>{state.customInnovation.shortLabel || 'Custom innovation'}</h2>
+      <h2>Outcome {state.selectedFinalOutcomeIds.length + 1}: {state.customInnovation.shortLabel || 'Custom innovation'}</h2>
       <GuidedOutcomeList phase={phase} custom primary={state.customInnovation.primaryIndicator} />
       <div hidden={phase !== 'detailed'}><CustomInnovationPage /></div>
     </section>}

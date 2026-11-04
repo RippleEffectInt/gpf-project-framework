@@ -47,11 +47,13 @@ export function PlannedOutputEditor({
 
   return (
     <div className="planned-output">
-      <strong>Planned output</strong>
+      <h4>Planned output</h4>
+      <p>Describe the measurable result of this activity. Check the quantity, what you are counting and the final wording before moving on.</p>
       <div className="planned-output-fields">
         {showManualQuantity && (
           <label>
             <span>Planned quantity</span>
+            <small>Enter a positive whole number for this activity, or leave blank while drafting.</small>
             <input
               inputMode="numeric"
               value={
@@ -72,6 +74,7 @@ export function PlannedOutputEditor({
         )}
         <label>
           <span>Unit</span>
+          <small>Choose what the quantity counts, for example groups, households or events.</small>
           <select
             aria-label="Output unit"
             value={planning.outputUnitSelection ?? ''}
@@ -95,6 +98,7 @@ export function PlannedOutputEditor({
         {planning.outputUnitSelection === 'other' && (
           <label className="full-width">
             <span>Other unit</span>
+            <small>Name what you are counting, for example demonstration plots.</small>
             <input
               aria-label="Other output unit"
               value={planning.customOutputUnit ?? ''}
@@ -130,6 +134,8 @@ export function PlannedOutputEditor({
         </label>
       )}
 
+      {useSelfHelpGroupTotalAvailable && <p className="field-guidance">When checked, the quantity follows the group total in Project details. Uncheck it to enter a different quantity for this activity.</p>}
+
       <p className="planned-output-text">
         {outputText
           ? `Planned output: ${outputText}`
@@ -163,8 +169,7 @@ export function PlannedOutputEditor({
               }
             />
             <small>
-              This project wording does not change the framework activity or
-              output phrase.
+              Write the complete output, including its quantity and unit. Custom wording stays as written when quantities change, so update it yourself. Reset to generated wording removes this override; it does not change the framework activity.
             </small>
           </label>
           <div className="inline-actions">
