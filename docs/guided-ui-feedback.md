@@ -23,3 +23,7 @@ Separate existing limitation: suggested/custom additions in the guided list curr
 ## Verification limits
 
 All three supplied Library screenshot references resolved, but each prescribed transfer failed with `library file transfer failed: download failed`. Their pixels and annotations could not be inspected. UI changes follow Phil's written instructions and inspected source. Browser QA remains unavailable because sandbox-enabled Chromium cannot start in this environment; sandbox restrictions were not bypassed. Automated component tests verify headings, indicator context/count and preserved optional selections, alongside existing editing/persistence tests.
+
+## Screenshot follow-up
+
+The parent inspected all three images and confirmed unequal button heights, the missing activities/outputs section heading, unlabeled pathway/Intermediate Outcome context, truncated “Self Help Gr” unit selection and tiny grey output wording. Version 6 addressed alignment, headings, context and output prominence. This follow-up gives the guided output-unit selector its own full-width row, including when a manual quantity is visible. Direct pixel/browser verification remains unavailable here; this comparison uses the parent’s image inspection and CSS/component inspection. Indicator requirements remain unchanged pending Phil’s answer.

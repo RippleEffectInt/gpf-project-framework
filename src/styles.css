@@ -3899,3 +3899,5 @@ label .field-error {
 .guided-inline-editor h4 { margin: 0; font-size: 1.1rem; }
 
 .guided-inline-editor .planned-output-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+
+.guided-inline-editor .planned-output-unit { grid-column: 1 / -1; }

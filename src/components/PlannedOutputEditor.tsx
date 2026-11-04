@@ -72,7 +72,7 @@ export function PlannedOutputEditor({
             />
           </label>
         )}
-        <label>
+        <label className="planned-output-unit">
           <span>Unit</span>
           <small>Choose what the quantity counts, for example groups, households or events.</small>
           <select
