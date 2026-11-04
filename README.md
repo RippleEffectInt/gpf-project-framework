@@ -361,8 +361,8 @@ The earlier `docs/basic-design-proposal.md` is retained as design history.
 
 ## Testing guided setup
 
-Open **Configure pathways → Guided setup**. Prepare untouched steps, review the
-activity/output defaults, then switch to **Indicators & review**. The **Detailed
+Open **Configure pathways → Guided setup**. New guided designs receive suggested activities automatically; review their
+activity/output defaults, then switch to **Indicators & review**. The **Advanced
 setup** button inside this page reveals the full editors without losing draft
 form text. Save a draft at any time; confirm steps only after reviewing them.
 
@@ -372,3 +372,9 @@ activity** at the end. Indicators use the same simple layout; required indicator
 cannot be removed. Inline editors stay closed until requested, and custom entries
 explicitly select the Intermediate Outcome they support. The latest removal can
 be undone. Detailed setup remains available on the same project.
+
+The setup choice now uses separate **Choose guided setup** and **Choose advanced
+setup** cards. New guided steps receive activity/output defaults once, while older
+drafts and edited steps keep their existing choices. Required Primary indicators
+are the only initial selections; optional suggested and custom indicators can be
+added explicitly. Removing activities remains effective after switching or reopening.

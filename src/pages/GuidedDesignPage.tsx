@@ -1,48 +1,47 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import { getFinalOutcome, getPathway, getPrimaryIndicatorForFinalOutcome, getIntermediateOutcomesInCausalOrder } from '../services/frameworkService'
 import { CustomInnovationPage } from './CustomInnovationPage'
 import { intermediateOutcomeHasRequiredActivity, projectDesignReducer } from '../state/projectDesign'
 import { GuidedOutcomeList } from '../components/GuidedOutcomeList'
-import { guidedPreparationActions } from '../state/guidedDesign'
+import { guidedAutomaticActions } from '../state/guidedDesign'
 import { canContinueToConfigure } from '../state/journeySelectors'
 import { IntermediateOutcomeConfigurationCard } from './PathwayConfigurationPage'
 
 export function GuidedDesignPage() {
   const { data } = useFramework()
   const { state, dispatch, saveProject, saveStatus } = useProjectDesign()
-  const [phase, setPhase] = useState<'activities' | 'indicators' | 'detailed'>('activities')
+  const [search] = useSearchParams()
+  const [phase, setPhase] = useState<'activities' | 'indicators' | 'detailed'>(search.get('view') === 'advanced' ? 'detailed' : 'activities')
   const [message, setMessage] = useState('')
+  useEffect(() => {
+    if (data && phase !== 'detailed' && canContinueToConfigure(state)) guidedAutomaticActions(data, state).forEach(dispatch)
+  }, [data, state, phase, dispatch])
   if (!data) return <p role="status">Loading framework…</p>
   if (!canContinueToConfigure(state)) return <div className="page-container"><h1>Choose Primary pathways first</h1><Link to="/design/outcomes">Return to outcomes</Link></div>
-  const actions = guidedPreparationActions(data, state)
   const total = state.metadata.plannedSelfHelpGroupCount
   const completionReady = state.projectPathways.length > 0 && state.projectPathways.every(p => p.intermediateOutcomeConfigurations.length > 0 && p.intermediateOutcomeConfigurations.every(io => io.primaryIndicator && intermediateOutcomeHasRequiredActivity(io)))
   const owner = new Map(state.projectPathways.map(pathway => [pathway.pathwayId,
     state.selectedFinalOutcomeIds.find(id => state.outcomePathwayLinks.some(link => link.pathwayId === pathway.pathwayId && link.finalOutcomeId === id))]))
   return <div className="page-container configuration-page guided-setup">
     <DesignProgress current="configure" />
-    <h1>Guided setup</h1>
+    <h1>{phase === 'detailed' ? 'Advanced setup' : 'Guided setup'}</h1>
     <p>Review your activities and outputs, then your indicators. Edits use the same project as detailed setup. Add new custom entries before leaving this page to keep them in the saved draft.</p>
     <Link className="button secondary" to="/design/configure">Return to pathways</Link>
+    <div className="page-actions setup-mode-switch" aria-label="Choose setup mode">
+      <button className="button primary" aria-pressed={phase !== 'detailed'} onClick={() => setPhase('activities')}>Guided setup</button>
+      <button className="button secondary" aria-pressed={phase === 'detailed'} onClick={() => setPhase('detailed')}>Advanced setup</button>
+    </div>
     <div className="page-actions">
       <button className="button secondary" aria-pressed={phase === 'activities'} onClick={() => setPhase('activities')}>1. Activities &amp; outputs</button>
       <button className="button secondary" aria-pressed={phase === 'indicators'} onClick={() => setPhase('indicators')}>2. Indicators &amp; review</button>
-      <button className="button secondary" aria-pressed={phase === 'detailed'} onClick={() => setPhase('detailed')}>Detailed setup</button>
       <button className="button secondary" disabled={saveStatus === 'saving'} onClick={async () => setMessage(await saveProject() ? 'Draft saved.' : 'Save failed. Your edits remain here; try again.')}>Save guided draft</button>
     </div>
     <p role="status">{message}</p>
-    <details hidden={phase !== 'activities'} className="guided-preparation">
-      <summary>Prepare suggested activities{actions.length ? ` (${actions.length} available)` : ''}</summary>
-      <p>Fill untouched steps only; existing work is preserved. Defaults remain drafts requiring review.</p>
-      <p>{total && total > 0 ? `Start with ${total} Self Help Groups. Review each quantity and unit; groups are not counts of people or events.` : 'No group count is set. New quantities and units will be blank.'}</p>
-      <button className="button secondary" disabled={!actions.length} onClick={() => {
-        actions.forEach(dispatch)
-        setMessage(`Added ${actions.length} suggested activities with editable defaults. Review these before confirming steps.`)
-      }}>Prepare untouched steps</button>
-    </details>
+    <p hidden={phase !== 'activities'} className="neutral-note">{state.guidedInitializedStepKeys ? 'Suggested activities are included automatically once for untouched steps in new designs.' : 'Existing draft selections are preserved; use Add a suggested activity to include more.'} {total && total > 0 ? `New output defaults use ${total} Self Help Groups; review quantities, units and wording.` : 'No group count is set, so quantities and units need your review.'}</p>
+    <p hidden={phase !== 'indicators'} className="neutral-note">New designs start with required Primary indicators only. Add suggested or custom indicators below. Existing selections are preserved.</p>
     {state.selectedFinalOutcomeIds.map(outcomeId => {
       const outcome = getFinalOutcome(data, outcomeId)
       const primary = getPrimaryIndicatorForFinalOutcome(data, outcomeId)

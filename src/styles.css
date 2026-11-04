@@ -3879,3 +3879,9 @@ label .field-error {
 .guided-simple-list > div > .button { margin-top: 1rem; }
 .guided-preparation, .guided-available { margin: 1rem 0; }
 .guided-available .text-button { display: block; margin: 0.75rem 0; text-align: left; }
+
+.setup-choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1.25rem; margin: 1.25rem 0; }
+.setup-choice { padding: 1.5rem; border: 2px solid #c9d8ce; border-radius: 0.75rem; background: #fff; }
+.setup-choice h3 { font-size: 1.35rem; margin-top: 0; }
+.setup-mode-switch { border-bottom: 2px solid #c9d8ce; padding-bottom: 1rem; }
+.setup-mode-switch [aria-pressed="true"] { background: #254c39; color: #fff; }

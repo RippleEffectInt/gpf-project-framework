@@ -159,7 +159,7 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
         <label>Measurement notes<textarea value={indicatorDraft.measurementNotes} onChange={e => setIndicatorDraft({ ...indicatorDraft, measurementNotes: e.target.value })} /></label>
         <button className="button primary" type="submit">Add indicator</button>
       </form>
-      {!custom && <><button className="text-button" onClick={() => setShowAvailable(!showAvailable)}>Add a framework indicator</button><div hidden={!showAvailable}>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id)).map(i => <button className="text-button" key={i.id} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add: {i.text}</button>)}</div>)}</div></>}
+      {!custom && <><button className="text-button" onClick={() => setShowAvailable(!showAvailable)}>Add suggested indicators</button><div hidden={!showAvailable}>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id)).map(i => <button className="text-button" key={i.id} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add: {i.text}</button>)}</div>)}</div></>}
     </div>
   </div>
 }

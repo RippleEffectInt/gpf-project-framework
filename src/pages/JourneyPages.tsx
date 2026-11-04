@@ -71,8 +71,12 @@ export function ConfigurePathwaysOverviewPage() {
       <div className="page-heading">
         <span className="eyebrow">Stage 2 · Configure pathways</span>
         <h1>Configure pathways</h1>
-        <p>Use guided setup to review activities, outputs and indicators together, or configure individual pathways below with detailed setup.</p>
-        <Link className="button primary" to="/design/guided">Guided setup</Link>
+        <h2>Choose how to build your design</h2>
+        <div className="setup-choice-grid">
+          <section className="setup-choice"><h3>Guided setup</h3><p>Start new designs with suggested activities and editable output defaults. Review simple outcome lists. Only required Primary indicators are selected initially.</p><Link className="button primary" to="/design/guided">Choose guided setup</Link></section>
+          <section className="setup-choice"><h3>Advanced setup</h3><p>Configure pathways step by step, choosing activities, outputs, indicators and inputs yourself.</p><Link className="button secondary" to="/design/guided?view=advanced">Choose advanced setup</Link></section>
+        </div>
+        <p>Both use the same saved project. Switching preserves existing selections and edits.</p>
         <Link className="button secondary choose-return-link" to="/design/outcomes">
           Add or change outcomes and pathways
         </Link>

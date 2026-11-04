@@ -112,6 +112,7 @@ export interface PersistedProjectDesignV1 {
     status: ProjectStatus
   }
   design: {
+    guidedInitializedStepKeys?: string[]
     metadata: {
       isMultiCountry?: boolean
       donor: string

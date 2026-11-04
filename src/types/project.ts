@@ -163,6 +163,8 @@ export interface CustomInnovationOutcome {
 }
 
 export interface ProjectDesignState {
+  /** Missing on legacy drafts: preserve their selections without automatic defaults. */
+  guidedInitializedStepKeys?: string[]
   metadata: ProjectMetadata
   selectedFinalOutcomeIds: string[]
   finalOutcomeSelectionSources: Record<string, FinalOutcomeSelectionSource>

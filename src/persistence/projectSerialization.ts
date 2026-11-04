@@ -295,6 +295,7 @@ export function isPersistedProjectDesignV1(
     isOptionalString(project.country) &&
     isOptionalString(project.projectCode) &&
     isProjectStatus(project.status) &&
+    (design.guidedInitializedStepKeys === undefined || isStringArray(design.guidedInitializedStepKeys)) &&
     isRecord(design.metadata) &&
     (design.metadata.isMultiCountry === undefined || typeof design.metadata.isMultiCountry === 'boolean') &&
     isString(design.metadata.donor) &&
@@ -453,6 +454,7 @@ export function serializeProject({
       status,
     },
     design: {
+      ...(design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: design.guidedInitializedStepKeys } : {}),
       metadata: {
         isMultiCountry: design.metadata.isMultiCountry === true,
         donor: design.metadata.donor,
@@ -616,6 +618,7 @@ export function loadPersistedProject(
   return {
     document,
     design: {
+      ...(document.design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: document.design.guidedInitializedStepKeys } : {}),
       metadata: {
         title: document.project.name,
         country: document.project.country ?? '',

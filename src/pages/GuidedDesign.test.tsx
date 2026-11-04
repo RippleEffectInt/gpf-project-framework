@@ -4,8 +4,9 @@ import { describe, expect, it } from 'vitest'
 import { CURRENT_FRAMEWORK as data } from '../data/frameworkRegistry'
 import { getIntermediateOutcomesInCausalOrder, getPrimaryIndicatorForIntermediateOutcome } from '../services/frameworkService'
 import { initialProjectDesignState, projectDesignReducer, getPathwayConfigurationStatus } from '../state/projectDesign'
-import { guidedPreparationActions } from '../state/guidedDesign'
+import { guidedAutomaticActions, guidedPreparationActions } from '../state/guidedDesign'
 import { FrameworkProvider, ProjectDesignProvider, useProjectDesign } from '../state/AppState'
+import { ConfigurePathwaysOverviewPage } from './JourneyPages'
 import { GuidedDesignPage } from './GuidedDesignPage'
 import { createBlankCustomInnovation } from '../state/customInnovation'
 import { serializeProject, loadPersistedProject } from '../persistence/projectSerialization'
@@ -23,8 +24,8 @@ function StateProbe() {
   const { state } = useProjectDesign()
   return <output data-testid="design-state" hidden>{JSON.stringify(state)}</output>
 }
-function mount(state = seed()) {
-  return render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={state}><GuidedDesignPage /><StateProbe /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
+function mount(state = seed(), automatic = false, route = '/design/guided') {
+  return render(<MemoryRouter initialEntries={[route]}><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={automatic ? state : { ...state, guidedInitializedStepKeys: undefined }}><GuidedDesignPage /><StateProbe /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
 }
 function current() { return JSON.parse(screen.getByTestId('design-state').textContent!) as ReturnType<typeof seed> }
 function selectTarget() {
@@ -100,7 +101,7 @@ describe('guided configuration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add custom activity' }))
     selectTarget()
     fireEvent.change(screen.getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Local demonstration activity' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add custom indicator' }))
     selectTarget()
@@ -123,11 +124,10 @@ describe('guided configuration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo removal' }))
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificIndicators[0]?.wording).toBe('Revised local measure')
   })
-  it('does not populate or complete work on navigation and protects required indicators', () => {
-    mount()
-    fireEvent.click(screen.getByText(/Prepare suggested activities/))
-    fireEvent.click(screen.getByRole('button', { name: 'Prepare untouched steps' }))
-    expect(screen.getByRole('button', { name: 'Prepare untouched steps' })).toBeDisabled()
+  it('automatically populates new guided work without completing it and protects required indicators', () => {
+    mount(seed(), true)
+    expect(screen.queryByRole('button', { name: 'Prepare untouched steps' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Remove activity' }).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
     expect(screen.queryByRole('button', { name: 'Remove indicator' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
@@ -168,7 +168,7 @@ describe('guided configuration', () => {
     const state = seed()
     state.projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificActivities.push({ id: 'shared-edit', wording: 'Shared edit activity', projectDetails: 'Initial notes', outputTextOverride: 'Existing output' })
     mount(state)
-    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
     const details = document.querySelector('details.io-configuration-card') as HTMLDetailsElement
     details.open = true
     fireEvent(details, new Event('toggle'))
@@ -178,11 +178,74 @@ describe('guided configuration', () => {
     fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Project notes' }), { target: { value: 'Simple notes' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Detailed setup' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
     expect(within(details).getByRole('textbox', { name: 'Activity wording *' })).toHaveValue('Advanced wording')
     expect(within(details).getByRole('textbox', { name: 'Project-specific details/notes — optional' })).toHaveValue('Simple notes')
     fireEvent.change(within(details).getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Latest wording' } })
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.projectSpecificActivities[0]).toMatchObject({ wording: 'Latest wording', projectDetails: 'Simple notes', outputTextOverride: 'Existing output' })
+  })
+
+  it('defaults new saved designs once and preserves deliberate empty steps after save/reopen', () => {
+    const fresh = seed()
+    const savedBeforeGuided = serializeProject({ id: 'new-before-guided', status: 'Draft', design: fresh, framework: data })
+    const reopened = loadPersistedProject(savedBeforeGuided, data).design
+    const prepared = guidedAutomaticActions(data, reopened).reduce(projectDesignReducer, reopened)
+    expect(prepared.projectPathways[0]!.intermediateOutcomeConfigurations.every(io => io.standardActivities.length > 0)).toBe(true)
+    const first = prepared.projectPathways[0]!.intermediateOutcomeConfigurations[0]!
+    const removed = first.standardActivities.reduce((state, activity) => projectDesignReducer(state, { type: 'setStandardActivity', pathwayId: 'PW_026', intermediateOutcomeId: first.frameworkIntermediateOutcomeId, frameworkActivityId: activity.frameworkActivityId, selected: false }), prepared)
+    const saved = serializeProject({ id: 'removed-guided', status: 'Draft', design: removed, framework: data })
+    const loaded = loadPersistedProject(saved, data).design
+    expect(guidedAutomaticActions(data, loaded)).toEqual([])
+    expect(loaded.projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities).toEqual([])
+    const legacy = structuredClone(saved)
+    delete legacy.design.guidedInitializedStepKeys
+    expect(guidedAutomaticActions(data, loadPersistedProject(legacy, data).design)).toEqual([])
+    expect(() => loadPersistedProject({ ...saved, design: { ...saved.design, guidedInitializedStepKeys: [123] } }, data)).toThrow()
+  })
+  it('preserves advanced removals and existing optional/custom indicator work before first guided entry', () => {
+    const fresh = seed()
+    const first = guidedPreparationActions(data, fresh)[0]!
+    let edited = projectDesignReducer(fresh, first)
+    if (first.type !== 'setStandardActivity') throw new Error('Expected activity action')
+    edited = projectDesignReducer(edited, { ...first, selected: false })
+    const io = edited.projectPathways[0]!.intermediateOutcomeConfigurations[0]!
+    io.projectSpecificIndicators.push({ id: 'existing-custom', wording: 'Keep this custom indicator', measurementNotes: 'Keep notes' })
+    const prepared = guidedAutomaticActions(data, edited).reduce(projectDesignReducer, edited)
+    expect(prepared.projectPathways[0]!.intermediateOutcomeConfigurations[0]).toEqual(io)
+    expect(prepared.projectPathways[0]!.intermediateOutcomeConfigurations.slice(1).some(c => c.standardActivities.length > 0)).toBe(true)
+  })
+  it('does not default on advanced entry, defaults on guided entry and preserves removals on switching/reopening', () => {
+    const mounted = mount(seed(), true, '/design/guided?view=advanced')
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => io.standardActivities.length === 0)).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
+    const count = screen.getAllByRole('button', { name: 'Remove activity' }).length
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove activity' })[0]!)
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
+    fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
+    expect(screen.getAllByRole('button', { name: 'Remove activity' })).toHaveLength(count - 1)
+    const saved = serializeProject({ id: 'switch-reopen', status: 'Draft', design: current(), framework: data })
+    mounted.unmount()
+    mount(loadPersistedProject(saved, data).design, true)
+    expect(screen.getAllByRole('button', { name: 'Remove activity' })).toHaveLength(count - 1)
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    expect(screen.getByRole('button', { name: 'Add suggested indicators' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add custom indicator' })).toBeInTheDocument()
+  })
+
+  it('presents distinct guided and advanced choices and defaults shared pathways only once', () => {
+    const state = seed()
+    render(<MemoryRouter><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={state}><ConfigurePathwaysOverviewPage /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
+    expect(screen.getByRole('link', { name: 'Choose guided setup' })).toHaveAttribute('href', '/design/guided')
+    expect(screen.getByRole('link', { name: 'Choose advanced setup' })).toHaveAttribute('href', '/design/guided?view=advanced')
+    const other = data.finalOutcomes.find(o => o.id !== state.selectedFinalOutcomeIds[0])!
+    state.selectedFinalOutcomeIds.push(other.id)
+    state.outcomePathwayLinks.push({ finalOutcomeId: other.id, pathwayId: 'PW_026', relationshipType: 'primary' })
+    const actions = guidedAutomaticActions(data, state)
+    const once = actions.reduce(projectDesignReducer, state)
+    const twice = actions.reduce(projectDesignReducer, once)
+    expect(twice).toEqual(once)
+    expect(guidedAutomaticActions(data, once)).toEqual([])
+    expect(new Set(once.guidedInitializedStepKeys).size).toBe(once.projectPathways[0]!.intermediateOutcomeConfigurations.length)
   })
 
 })

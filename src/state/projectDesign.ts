@@ -37,6 +37,7 @@ export const emptyProjectMetadata: ProjectMetadata = {
 }
 
 export const initialProjectDesignState: ProjectDesignState = {
+  guidedInitializedStepKeys: [],
   metadata: emptyProjectMetadata,
   selectedFinalOutcomeIds: [],
   finalOutcomeSelectionSources: {},
@@ -47,6 +48,7 @@ export const initialProjectDesignState: ProjectDesignState = {
 }
 
 export type ProjectDesignAction =
+  | { type: 'markGuidedStepsInitialized'; keys: string[] }
   | { type: 'updateMetadata'; payload: Partial<ProjectMetadata> }
   | { type: 'selectFinalOutcome'; finalOutcomeId: string }
   | {
@@ -307,6 +309,7 @@ function updateIntermediateOutcomeConfiguration(
 ): ProjectDesignState {
   return {
     ...state,
+    ...(state.guidedInitializedStepKeys ? { guidedInitializedStepKeys: [...new Set([...state.guidedInitializedStepKeys, `${pathwayId}/${intermediateOutcomeId}`])] } : {}),
     projectPathways: state.projectPathways.map((pathway) =>
       pathway.pathwayId !== pathwayId
         ? pathway
@@ -421,6 +424,9 @@ export function projectDesignReducer(
 ): ProjectDesignState {
   if (outcomeLimitMessage(state, action)) return state
   switch (action.type) {
+    case 'markGuidedStepsInitialized':
+      return state.guidedInitializedStepKeys ? { ...state, guidedInitializedStepKeys: [...new Set([...state.guidedInitializedStepKeys, ...action.keys])] } : state
+
     case 'updateMetadata': {
       const metadata = { ...state.metadata, ...action.payload }
       const selfHelpGroupCountChanged =

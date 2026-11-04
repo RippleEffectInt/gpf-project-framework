@@ -26,3 +26,20 @@ export function guidedPreparationActions(data: FrameworkData, state: ProjectDesi
   }
   return actions
 }
+
+/** New designs only. Each step is considered once, even if users remove every activity later. */
+export function guidedAutomaticActions(data: FrameworkData, state: ProjectDesignState): ProjectDesignAction[] {
+  if (!state.guidedInitializedStepKeys) return []
+  const marked = new Set(state.guidedInitializedStepKeys)
+  const keys: string[] = []
+  const projectPathways = state.projectPathways.map(pathway => ({ ...pathway,
+    intermediateOutcomeConfigurations: pathway.intermediateOutcomeConfigurations.filter(io => {
+      const key = `${pathway.pathwayId}/${io.frameworkIntermediateOutcomeId}`
+      if (marked.has(key)) return false
+      keys.push(key)
+      return !io.additionalIndicators.length && !io.projectSpecificIndicators.length && !io.inputs.length
+    }),
+  }))
+  if (!keys.length) return []
+  return [...guidedPreparationActions(data, { ...state, projectPathways }), { type: 'markGuidedStepsInitialized', keys }]
+}
