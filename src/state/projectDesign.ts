@@ -48,6 +48,7 @@ export const initialProjectDesignState: ProjectDesignState = {
 }
 
 export type ProjectDesignAction =
+  | { type: 'setFinalOutcomeSuggestedIndicator'; finalOutcomeId: string; indicatorId: string; selected: boolean }
   | { type: 'saveFinalOutcomeIndicator'; finalOutcomeId: string; indicator: ProjectSpecificIndicator }
   | { type: 'deleteFinalOutcomeIndicator'; finalOutcomeId: string; indicatorId: string }
   | { type: 'markGuidedStepsInitialized'; keys: string[] }
@@ -426,6 +427,12 @@ export function projectDesignReducer(
 ): ProjectDesignState {
   if (outcomeLimitMessage(state, action)) return state
   switch (action.type) {
+    case 'setFinalOutcomeSuggestedIndicator': {
+      if (!state.selectedFinalOutcomeIds.includes(action.finalOutcomeId)) return state
+      const current = state.finalOutcomeSuggestedIndicatorIds?.[action.finalOutcomeId] ?? []
+      return { ...state, finalOutcomeSuggestedIndicatorIds: { ...state.finalOutcomeSuggestedIndicatorIds, [action.finalOutcomeId]: action.selected ? [...new Set([...current, action.indicatorId])] : current.filter(id => id !== action.indicatorId) } }
+    }
+
     case 'saveFinalOutcomeIndicator':
     case 'deleteFinalOutcomeIndicator': {
       if (!state.selectedFinalOutcomeIds.includes(action.finalOutcomeId) && state.customInnovation?.id !== action.finalOutcomeId) return state

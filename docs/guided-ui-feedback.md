@@ -18,7 +18,7 @@ Dietary diversity (`PW_026`, Final Outcome `FO_023`) has five Intermediate Outco
 
 Phil confirmed on 4 November 2026 that one mandatory Primary indicator is required for each Final Outcome and each Intermediate Outcome. The current canonical rules are retained; no indicator data or requirement changes are needed.
 
-Separate limitation: the 95 standard Final Outcome Additional indicators are not offered as suggested choices in this list. They remain optional framework records; this does not affect the new project-specific Final Outcome indicators.
+The current preview now offers the canonical Final Outcome Additional indicators as optional suggestions, alongside custom Final Outcome measures.
 
 ## Verification limits
 
@@ -41,7 +41,7 @@ Each standard or custom Final Outcome now offers an optional custom indicator ed
 
 The optional `design.finalOutcomeIndicators` dictionary is keyed by Final Outcome ID, storing ID, wording and measurement notes. Older drafts without it load unchanged. Shared pathways do not duplicate these records. Deselecting a standard outcome retains its records without showing/exporting them; reselecting that same outcome restores access. Custom innovation records use their own unique outcome ID.
 
-Saved indicators appear in draft overview, final review and Theory of Change details. Indicator exports mark them Project-specific/Optional at Final Outcome level; donor-logframe exports include wording and notes. No SharePoint field changes or migration are required. Standard Final Outcome suggested-indicator selection remains outside this change.
+Saved indicators appear in draft overview, final review and Theory of Change details. Indicator exports mark them Project-specific/Optional at Final Outcome level; donor-logframe exports include wording and notes. No SharePoint field changes or migration are required. The subsequent two-level indicator controls add standard Final Outcome suggested-indicator selection without changing required Primary measures.
 
 ## Required indicator table and editor placement
 
@@ -50,3 +50,11 @@ The guided activity editor now ends with Done editing, below notes and output fi
 Optional suggested/selected Intermediate Outcome indicators identify their outcome level and statement. Custom Final Outcome indicator groups show the Final Outcome label and full statement. No required flags, saved data, defaults, persistence or export behavior change.
 
 Validation: 19 guided-design and draft-overview tests passed, including read-only required tables and editor control order; lint, TypeScript and production build passed. Browser visual verification remains unavailable in this environment.
+
+## Two-level optional indicator controls and activity grouping
+
+Beneath the unchanged read-only required table, Final Outcome Indicators and Intermediate Outcome Indicators each have Add more indicators. This reveals Add from list of suggested indicators and Add custom indicator. Existing selected measures retain edit/remove/undo controls. Forms remain mounted when switching guided stages or the embedded advanced route.
+
+Standard Final Outcome suggestions come only from active, non-mandatory Additional indicators linked to that Final Outcome in the canonical framework. Their optional IDs are stored in `design.finalOutcomeSuggestedIndicatorIds`; old drafts without the field are unchanged. Selections appear in draft/final review, Theory of Change details and indicator/donor-logframe exports. The source catalogue is not modified. Custom innovation has no canonical suggestions, so this flow explains that and offers custom creation.
+
+Final Outcome indicator lists identify all selected supporting pathways, their Primary/Related relationships and shared status. Intermediate Outcome indicators name their own pathway. Activity sections use each actual Intermediate Outcome statement and pathway, including empty states. Shared pathway activities remain editable once with existing cross-basket links; no duplicate activity records or inferred relationships are introduced.

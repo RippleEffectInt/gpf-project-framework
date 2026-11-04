@@ -52,8 +52,7 @@ export function GuidedDesignPage() {
       return <section id={`guided-outcome-${outcomeId}`} key={outcomeId} className="configuration-overview-card">
         <h2>Outcome {outcomeIndex + 1}: {outcome?.statement ?? outcomeId}</h2>
         {links.filter(link => owner.get(link.pathwayId) === outcomeId && state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId).length > 1).map(link => <p className="guided-shared-note" key={link.pathwayId}>Shared activities also support {state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId && other.finalOutcomeId !== outcomeId).map(other => getFinalOutcome(data, other.finalOutcomeId)?.shortLabel ?? other.finalOutcomeId).join(', ')}. Edits and removals apply to every linked outcome.</p>)}
-        <GuidedOutcomeList finalOutcomeStatement={outcome?.statement ?? outcomeId} phase={phase} pathwayIds={links.filter(link => owner.get(link.pathwayId) === outcomeId).map(link => link.pathwayId)} primary={{ id: primary?.id ?? '', wording: primary?.text ?? 'Required Primary indicator missing', measurementNotes: '' }} />
-      <div hidden={phase === 'activities'}><FinalOutcomeIndicators outcomeId={outcomeId} editable /></div>
+        <GuidedOutcomeList finalIndicators={<FinalOutcomeIndicators outcomeId={outcomeId} editable />} finalPathways={links.map(l => `${getPathway(data, l.pathwayId)?.name ?? l.pathwayId} (${l.relationshipType}${state.outcomePathwayLinks.filter(other => other.pathwayId === l.pathwayId).length > 1 ? ", shared" : ""})`).join("; ")} finalOutcomeStatement={outcome?.statement ?? outcomeId} phase={phase} pathwayIds={links.filter(link => owner.get(link.pathwayId) === outcomeId).map(link => link.pathwayId)} primary={{ id: primary?.id ?? '', wording: primary?.text ?? 'Required Primary indicator missing', measurementNotes: '' }} />
         {links.map(link => {
           const pathway = state.projectPathways.find(item => item.pathwayId === link.pathwayId)
           if (!pathway) return <p key={link.pathwayId} role="alert">Pathway configuration missing.</p>
@@ -71,8 +70,7 @@ export function GuidedDesignPage() {
     })}
     {state.customInnovation && <section className="configuration-overview-card">
       <h2>Outcome {state.selectedFinalOutcomeIds.length + 1}: {state.customInnovation.shortLabel || 'Custom innovation'}</h2>
-      <GuidedOutcomeList finalOutcomeStatement={state.customInnovation.statement || 'Untitled custom Final Outcome'} phase={phase} custom primary={state.customInnovation.primaryIndicator} />
-      <div hidden={phase === 'activities'}><FinalOutcomeIndicators outcomeId={state.customInnovation.id} editable /></div>
+      <GuidedOutcomeList finalIndicators={<FinalOutcomeIndicators outcomeId={state.customInnovation.id} editable />} finalPathways={state.customInnovation.pathway.name} finalOutcomeStatement={state.customInnovation.statement || 'Untitled custom Final Outcome'} phase={phase} custom primary={state.customInnovation.primaryIndicator} />
       <div hidden={phase !== 'detailed'}><CustomInnovationPage /></div>
     </section>}
     <div hidden={phase !== 'indicators'} className="guided-completion">

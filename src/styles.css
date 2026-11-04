@@ -3918,3 +3918,9 @@ label .field-error {
 .guided-required-table thead th:first-child { width: 21%; }
 .guided-required-table tbody th { font-weight: 500; }
 .guided-required-table:focus-visible { outline: 3px solid #254c39; outline-offset: 2px; }
+
+.indicator-section-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0 0.75rem; }
+.indicator-section-heading h3 { margin: 0; }
+.guided-activity-outcome { margin: 1.5rem 0; padding: 1rem; border: 1px solid #c9d8ce; border-radius: 0.5rem; }
+.guided-activity-outcome h3 { line-height: 1.5; }
+.guided-pathway-context { font-size: 0.9rem; font-weight: 400; }

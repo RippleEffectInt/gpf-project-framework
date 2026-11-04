@@ -259,7 +259,10 @@ export function generateTheoryOfChangeGraph(
         statement: outcome.statement,
         impactLabels: [...new Set(impactLabels)],
         primaryIndicator: standardIndicator(input, primaryIndicatorId),
-        additionalIndicators: (input.project.finalOutcomeIndicators?.[outcome.id] ?? []).map(i => ({ label: i.wording, measurementNotes: i.measurementNotes || undefined, custom: true })),
+        additionalIndicators: [
+          ...(input.project.finalOutcomeSuggestedIndicatorIds?.[outcome.id] ?? []).flatMap(id => { const indicator = standardIndicator(input, id); return indicator ? [indicator] : [] }),
+          ...(input.project.finalOutcomeIndicators?.[outcome.id] ?? []).map(i => ({ label: i.wording, measurementNotes: i.measurementNotes || undefined, custom: true })),
+        ],
       },
     }
     nodes.set(node.id, node)

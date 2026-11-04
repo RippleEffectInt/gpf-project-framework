@@ -30,18 +30,52 @@ function mount(state = seed(), automatic = false, route = '/design/guided') {
   return render(<MemoryRouter initialEntries={[route]}><FrameworkProvider initialData={data}><ProjectDesignProvider initialState={automatic ? state : { ...state, guidedInitializedStepKeys: undefined }}><GuidedDesignPage /><StateProbe /></ProjectDesignProvider></FrameworkProvider></MemoryRouter>)
 }
 function current() { return JSON.parse(screen.getByTestId('design-state').textContent!) as ReturnType<typeof seed> }
+function optionalSection(level: 'Final' | 'Intermediate') {
+  return within(screen.getByRole('region', { name: `${level} Outcome Indicators` }))
+}
+function openMore(level: 'Final' | 'Intermediate') {
+  const section = optionalSection(level)
+  fireEvent.click(section.getByRole('button', { name: 'Add more indicators' }))
+  return section
+}
+
 function selectTarget() {
   const select = screen.getByRole('combobox', { name: 'Supports Intermediate Outcome' }) as HTMLSelectElement
   fireEvent.change(select, { target: { value: select.options[1]!.value } })
 }
 
 describe('guided configuration', () => {
+  it('groups activities by their real intermediate outcome and persists optional Final Outcome suggestions', () => {
+    mount(seed(), true)
+    for (const io of current().projectPathways[0]!.intermediateOutcomeConfigurations) {
+      const statement = data.intermediateOutcomes.find(o => o.id === io.frameworkIntermediateOutcomeId)!.statement
+      const section = screen.getByRole('heading', { name: `Intermediate Outcome: ${statement}` }).closest('section')!
+      expect(within(section).getAllByRole('button', { name: 'Remove activity' })).toHaveLength(io.standardActivities.length)
+    }
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    const final = openMore('Final')
+    fireEvent.click(final.getByRole('button', { name: 'Add from list of suggested indicators' }))
+    fireEvent.click(final.getAllByRole('button', { name: /^Add: / })[0]!)
+    const state = current(); const outcomeId = state.selectedFinalOutcomeIds[0]!
+    const indicatorId = state.finalOutcomeSuggestedIndicatorIds![outcomeId]![0]!
+    expect(data.indicators.find(i => i.id === indicatorId)).toMatchObject({ parentId: outcomeId, role: 'Additional', mandatory: false })
+    expect(final.getByText(/Pathway\(s\) supporting/)).toBeVisible()
+    const doc = serializeProject({ id: 'suggested-final', status: 'Draft', design: state, framework: data })
+    expect(loadPersistedProject(doc, data).design.finalOutcomeSuggestedIndicatorIds).toEqual(state.finalOutcomeSuggestedIndicatorIds)
+    const graph = generateTheoryOfChangeGraph({ project: state, framework: data, inputCategories })
+    expect(graph.nodes.some(n => n.type === 'finalOutcome' && n.data.additionalIndicators?.some(i => i.label === data.indicators.find(x => x.id === indicatorId)!.text))).toBe(true)
+    fireEvent.click(final.getByRole('button', { name: 'Remove suggested Final Outcome indicator' }))
+    expect(current().finalOutcomeSuggestedIndicatorIds?.[outcomeId]).toEqual([])
+    fireEvent.click(final.getByRole('button', { name: 'Undo suggested indicator removal' }))
+    expect(current().finalOutcomeSuggestedIndicatorIds?.[outcomeId]).toEqual([indicatorId])
+  })
+
   it('adds, edits, removes and persists Final Outcome indicators without changing primary indicators', () => {
     const state = seed()
     mount(state, true)
     const primaryBefore = current().projectPathways.map(p => p.intermediateOutcomeConfigurations.map(io => io.primaryIndicator))
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add custom Final Outcome indicator' }))
+    fireEvent.click(openMore('Final').getByRole('button', { name: 'Add custom indicator' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Final Outcome indicator wording' }), { target: { value: 'Household change measure' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Final Outcome measurement notes' }), { target: { value: 'Annual survey' } })
     fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
@@ -95,7 +129,7 @@ describe('guided configuration', () => {
     expect(within(table).getAllByRole('cell', { name: 'Intermediate Outcome' })).toHaveLength(count)
     expect(within(table).queryByRole('button')).not.toBeInTheDocument()
     expect(within(table).queryByRole('textbox')).not.toBeInTheDocument()
-    expect(within(table).getByRole('rowheader', { name: data.finalOutcomes.find(o => o.id === initial.selectedFinalOutcomeIds[0])!.statement })).toBeVisible()
+    expect(within(table).getByText(data.finalOutcomes.find(o => o.id === initial.selectedFinalOutcomeIds[0])!.statement)).toBeVisible()
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => io.additionalIndicators.length === 0)).toBe(true)
   })
 
@@ -168,7 +202,7 @@ describe('guided configuration', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Activity wording *' }), { target: { value: 'Local demonstration activity' } })
     fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add custom indicator' }))
+    fireEvent.click(openMore('Intermediate').getByRole('button', { name: 'Add custom indicator' }))
     selectTarget()
     fireEvent.change(screen.getByRole('textbox', { name: 'Indicator wording *' }), { target: { value: 'Local measure' } })
     fireEvent.click(screen.getByRole('button', { name: '1. Activities & outputs' }))
@@ -198,10 +232,10 @@ describe('guided configuration', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => !io.reviewed)).toBe(true)
     expect(screen.getByRole('button', { name: 'Confirm reviewed pathways' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Add suggested indicators' }))
+    fireEvent.click(openMore('Intermediate').getByRole('button', { name: 'Add from list of suggested indicators' }))
     const suggested = screen.getAllByRole('button', { name: /^Add: / })[0]!
     expect(suggested.closest('li')).toBeTruthy()
-    expect(suggested.closest('section')?.querySelector('h3')?.textContent).toMatch(/^Intermediate Outcome: /)
+    expect(suggested.closest('section')?.querySelector('h4')?.textContent).toMatch(/^Intermediate Outcome: /)
     fireEvent.click(suggested)
     expect(screen.getAllByRole('button', { name: 'Remove indicator' })).toHaveLength(1)
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.reduce((n, io) => n + io.additionalIndicators.length, 0)).toBe(1)
@@ -302,8 +336,9 @@ describe('guided configuration', () => {
     mount(loadPersistedProject(saved, data).design, true)
     expect(screen.getAllByRole('button', { name: 'Remove activity' })).toHaveLength(count - 1)
     fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
-    expect(screen.getByRole('button', { name: 'Add suggested indicators' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add custom indicator' })).toBeInTheDocument()
+    const section = openMore('Intermediate')
+    expect(section.getByRole('button', { name: 'Add from list of suggested indicators' })).toBeInTheDocument()
+    expect(section.getByRole('button', { name: 'Add custom indicator' })).toBeInTheDocument()
   })
 
   it('presents distinct guided and advanced choices and defaults shared pathways only once', () => {

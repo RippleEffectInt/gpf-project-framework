@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { PlannedOutputEditor } from './PlannedOutputEditor'
 import { useFramework, useProjectDesign } from '../state/AppState'
 import { createActivityOutputPlanning, displayedOutputText, normalizeActivityOutput } from '../state/activityOutputs'
@@ -55,8 +55,8 @@ function IndicatorItem({ indicator, required = false, context, onChange, onRemov
   </li>
 }
 
-export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, finalOutcomeStatement, phase }: {
-  pathwayIds?: string[]; custom?: boolean; primary?: ProjectSpecificIndicator; finalOutcomeStatement: string
+export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, finalOutcomeStatement, finalIndicators, finalPathways, phase }: {
+  pathwayIds?: string[]; custom?: boolean; primary?: ProjectSpecificIndicator; finalOutcomeStatement: string; finalIndicators: ReactNode; finalPathways: string
   phase: 'activities' | 'indicators' | 'detailed'
 }) {
   const { data } = useFramework()
@@ -69,15 +69,16 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
   const [indicatorDraft, setIndicatorDraft] = useState<ProjectSpecificIndicator>({ id: '', wording: '', measurementNotes: '' })
   const [undo, setUndo] = useState<ProjectDesignAction[]>([])
   const [showAvailable, setShowAvailable] = useState(false)
+  const [moreIndicators, setMoreIndicators] = useState(false)
   if (!data) return null
   const targets = custom ? (state.customInnovation?.pathway.intermediateOutcomes ?? []).map(io => ({
-    key: io.id, pathwayId: '', ioId: io.id, statement: io.statement || 'Untitled Intermediate Outcome', label: io.statement || 'Untitled Intermediate Outcome',
+    key: io.id, pathwayId: '', pathwayLabel: state.customInnovation?.pathway.name || 'Custom pathway', ioId: io.id, statement: io.statement || 'Untitled Intermediate Outcome', label: io.statement || 'Untitled Intermediate Outcome',
     standardActivities: [], activities: io.activities, primary: io.primaryIndicator,
     optional: [], indicators: io.additionalIndicators,
   })) : pathwayIds.flatMap(pathwayId => getIntermediateOutcomesInCausalOrder(data, pathwayId).flatMap(io => {
     const configuration = state.projectPathways.find(p => p.pathwayId === pathwayId)?.intermediateOutcomeConfigurations.find(c => c.frameworkIntermediateOutcomeId === io.id)
     if (!configuration) return []
-    return [{ key: `${pathwayId}/${io.id}`, pathwayId, ioId: io.id, statement: io.statement,
+    return [{ key: `${pathwayId}/${io.id}`, pathwayId, pathwayLabel: `${getPathway(data, pathwayId)?.name ?? pathwayId}${state.outcomePathwayLinks.filter(l => l.pathwayId === pathwayId).length > 1 ? ' (shared pathway)' : ''}`, ioId: io.id, statement: io.statement,
       label: `${getPathway(data, pathwayId)?.name ?? pathwayId} · ${io.statement}`,
       standardActivities: configuration.standardActivities, activities: configuration.projectSpecificActivities,
       primary: { id: configuration.primaryIndicator?.frameworkIndicatorId ?? '', wording: getIndicator(data, configuration.primaryIndicator?.frameworkIndicatorId)?.text ?? 'Required Primary indicator missing', measurementNotes: '' },
@@ -109,11 +110,14 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
     setUndo([])
   }
   const activityCount = targets.reduce((sum, t) => sum + t.standardActivities.length + t.activities.length, 0)
-  return <div className="guided-simple-list" hidden={phase === 'detailed'}>
+  return <div className="guided-simple-list">
     {undo.length > 0 && <p role="status">Item removed. <button className="text-button" onClick={restoreRemoval}>Undo removal</button></p>}
     <div hidden={phase !== 'activities'}>
       {targets.length > 0 && !activityCount && <p>No activities selected yet.</p>}
-      <ul className="guided-items">{targets.flatMap(target => [
+      <div>{targets.map(target => <section className="guided-activity-outcome" key={target.key}>
+        <h3>Intermediate Outcome: {target.statement}</h3><p><strong>Pathway:</strong> {target.pathwayLabel}</p>
+        {!target.standardActivities.length && !target.activities.length && <p>No activities selected for this Intermediate Outcome yet.</p>}
+        <ul className="guided-items">{[
         ...target.standardActivities.map(selection => {
           const standard = getSuggestedActivitiesForIntermediateOutcome(data, target.ioId).find(a => a.id === selection.frameworkActivityId)
           const address = { pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkActivityId: selection.frameworkActivityId }
@@ -125,7 +129,7 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
         ...target.activities.map(activity => <ActivityItem key={`${target.key}/${activity.id}`} activity={activity} context={target.label}
           onChange={next => dispatch(activityAction(target, next, false))}
           onRemove={() => remove(custom ? { type: 'deleteCustomIoActivity', intermediateOutcomeId: target.ioId, activityId: activity.id } : { type: 'deleteProjectSpecificActivity', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, activityId: activity.id }, [activityAction(target, activity, true)])} />),
-      ])}</ul>
+      ]}</ul></section>)}</div>
       <button className="button secondary" disabled={!targets.length} onClick={() => setAddingActivity(!addingActivity)}>{addingActivity ? 'Close activity form' : 'Add custom activity'}</button>
       <form className="guided-inline-editor" hidden={!addingActivity} onSubmit={e => {
         e.preventDefault(); const target = targets.find(t => t.key === activityTarget)
@@ -143,28 +147,32 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
       </form>
       {!custom && <details className="guided-available"><summary>Add a suggested activity</summary>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getSuggestedActivitiesForIntermediateOutcome(data, target.ioId).filter(a => !target.standardActivities.some(s => s.frameworkActivityId === a.id)).map(a => <button className="text-button" key={a.id} onClick={() => dispatch({ type: 'setStandardActivity', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkActivityId: a.id, selected: true })}>Add: {a.text}</button>)}</div>)}</details>}
     </div>
-    <div hidden={phase !== 'indicators'}>
-      <div className="guided-required-table" role="region" aria-label={`Required Primary Indicators for ${finalOutcomeStatement}`} tabIndex={0}>
+    <div hidden={phase === 'activities'}>
+      <div hidden={phase === 'detailed'} className="guided-required-table" role="region" aria-label={`Required Primary Indicators for ${finalOutcomeStatement}`} tabIndex={0}>
         <table>
           <caption>Required Primary Indicators</caption>
           <thead><tr><th scope="col">Outcome level</th><th scope="col">Outcome statement</th><th scope="col">Required Primary indicator</th></tr></thead>
           <tbody>
-            {primary && <tr><td>Final Outcome</td><th scope="row">{finalOutcomeStatement}</th><td>{primary.wording || 'Primary indicator not entered yet'}{primary.measurementNotes && <p>Measurement notes: {primary.measurementNotes}</p>}</td></tr>}
-            {targets.map(target => <tr key={target.key}><td>Intermediate Outcome</td><th scope="row">{target.statement}</th><td>{target.primary.wording || 'Primary indicator not entered yet'}{target.primary.measurementNotes && <p>Measurement notes: {target.primary.measurementNotes}</p>}</td></tr>)}
+            {primary && <tr><td>Final Outcome</td><th scope="row">{finalOutcomeStatement}<p className="guided-pathway-context">Pathway(s): {finalPathways || 'None selected yet'}</p></th><td>{primary.wording || 'Primary indicator not entered yet'}{primary.measurementNotes && <p>Measurement notes: {primary.measurementNotes}</p>}</td></tr>}
+            {targets.map(target => <tr key={target.key}><td>Intermediate Outcome</td><th scope="row">{target.statement}<p className="guided-pathway-context">Pathway: {target.pathwayLabel}</p></th><td>{target.primary.wording || 'Primary indicator not entered yet'}{target.primary.measurementNotes && <p>Measurement notes: {target.primary.measurementNotes}</p>}</td></tr>)}
           </tbody>
         </table>
       </div>
-      <p className="neutral-note">Required Primary indicators are read-only here. Suggested and custom indicators below are optional.</p>
-      <h3>Additional Intermediate Outcome indicators</h3>
+      {finalIndicators}
+      <section hidden={phase === 'detailed'} aria-label="Intermediate Outcome Indicators">
+      <div className="indicator-section-heading"><h3>Intermediate Outcome Indicators</h3><button className="button secondary" aria-expanded={moreIndicators} onClick={() => setMoreIndicators(!moreIndicators)}>Add more indicators</button></div>
+      <div hidden={!moreIndicators} className="guided-item-actions">
+        <button className="button secondary" aria-expanded={showAvailable} onClick={() => setShowAvailable(!showAvailable)}>Add from list of suggested indicators</button>
+        <button className="button secondary" disabled={!targets.length} aria-expanded={addingIndicator} onClick={() => setAddingIndicator(!addingIndicator)}>Add custom indicator</button>
+      </div>
       <ul className="guided-items">
         {targets.flatMap(target => [
-          ...target.optional.map(selection => <IndicatorItem key={`${target.key}/${selection.frameworkIndicatorId}`} indicator={{ id: selection.frameworkIndicatorId, wording: getIndicator(data, selection.frameworkIndicatorId)?.text ?? selection.frameworkIndicatorId, measurementNotes: '' }} context={`Intermediate Outcome: ${target.statement}`}
+          ...target.optional.map(selection => <IndicatorItem key={`${target.key}/${selection.frameworkIndicatorId}`} indicator={{ id: selection.frameworkIndicatorId, wording: getIndicator(data, selection.frameworkIndicatorId)?.text ?? selection.frameworkIndicatorId, measurementNotes: '' }} context={`Intermediate Outcome: ${target.statement} · Pathway: ${target.pathwayLabel}`}
             onRemove={() => remove({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: false }, [{ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: selection.frameworkIndicatorId, selected: true }])} />),
-          ...target.indicators.map(indicator => <IndicatorItem key={`${target.key}/${indicator.id}`} indicator={indicator} context={`Intermediate Outcome: ${target.statement}`} onChange={next => dispatch(indicatorAction(target, next, false))}
+          ...target.indicators.map(indicator => <IndicatorItem key={`${target.key}/${indicator.id}`} indicator={indicator} context={`Intermediate Outcome: ${target.statement} · Pathway: ${target.pathwayLabel}`} onChange={next => dispatch(indicatorAction(target, next, false))}
             onRemove={() => remove(custom ? { type: 'deleteCustomIoAdditionalIndicator', intermediateOutcomeId: target.ioId, indicatorId: indicator.id } : { type: 'deleteProjectSpecificIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, indicatorId: indicator.id }, [indicatorAction(target, indicator, true)])} />),
         ])}
       </ul>
-      <button className="button secondary" disabled={!targets.length} onClick={() => setAddingIndicator(!addingIndicator)}>{addingIndicator ? 'Close indicator form' : 'Add custom indicator'}</button>
       <form className="guided-inline-editor" hidden={!addingIndicator} onSubmit={e => {
         e.preventDefault(); const target = targets.find(t => t.key === indicatorTarget)
         if (!target || !indicatorDraft.wording.trim()) return
@@ -178,14 +186,13 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
         <label>Measurement notes<textarea value={indicatorDraft.measurementNotes} onChange={e => setIndicatorDraft({ ...indicatorDraft, measurementNotes: e.target.value })} /></label>
         <button className="button primary" type="submit">Add indicator</button>
       </form>
-      {!custom && <div className="guided-indicator-options">
-        <button className="button secondary" aria-expanded={showAvailable} onClick={() => setShowAvailable(!showAvailable)}>Add suggested indicators</button>
+      <div className="guided-indicator-options">
         <div hidden={!showAvailable}>
-          <p>Choose optional indicators to add to the relevant Intermediate Outcome. Required Primary indicators are already included above.</p>
+          <p>{custom ? 'Custom innovation has no framework suggestions. Add a custom indicator instead.' : 'Choose optional indicators for the relevant Intermediate Outcome below.'}</p>
           {targets.map(target => {
             const available = getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id))
             return <section className="guided-indicator-group" key={target.key}>
-              <h3>Intermediate Outcome: {target.statement}</h3>
+              <h4>Intermediate Outcome: {target.statement}</h4><p><strong>Pathway:</strong> {target.pathwayLabel}</p>
               {available.length ? <ul>{available.map(i => <li key={i.id}>
                 <p>{i.text}</p>
                 <button className="button secondary" aria-label={`Add: ${i.text}`} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add indicator</button>
@@ -193,7 +200,8 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, fi
             </section>
           })}
         </div>
-      </div>}
+      </div>
+      </section>
     </div>
   </div>
 }

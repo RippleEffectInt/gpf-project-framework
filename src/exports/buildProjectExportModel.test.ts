@@ -349,11 +349,15 @@ describe('saved project export model', () => {
     const { record } = exportRecord()
     const standardId = record.project.design.selectedFinalOutcomeIds[0]!
     const customId = record.project.design.customInnovation!.id
+    const suggested = CURRENT_FRAMEWORK.indicators.find(i => i.parentId === standardId && i.role === 'Additional')!
+    record.project.design.finalOutcomeSuggestedIndicatorIds = { [standardId]: [suggested.id] }
     record.project.design.finalOutcomeIndicators = {
       [standardId]: [{ id: 'final-1', wording: 'Standard outcome extra measure', measurementNotes: 'Annual sample' }],
       [customId]: [{ id: 'final-2', wording: 'Innovation extra measure', measurementNotes: 'Baseline comparison' }],
     }
     const model = buildProjectExportModelFromRecord(record)
+    expect(model.indicators.some(i => i.indicator === suggested.text && i.indicatorType === 'Additional' && i.requirement === 'Optional')).toBe(true)
+    expect(model.donorLogframe.some(i => i.indicator.includes(suggested.text))).toBe(true)
     for (const wording of ['Standard outcome extra measure — Annual sample', 'Innovation extra measure — Baseline comparison']) {
       expect(model.indicators.some(row => row.resultLevel === 'Final Outcome' && row.indicator === wording && row.requirement === 'Optional')).toBe(true)
       expect(model.donorLogframe.some(row => row.resultsLevel === 'Final Outcome' && row.indicator.includes(wording))).toBe(true)

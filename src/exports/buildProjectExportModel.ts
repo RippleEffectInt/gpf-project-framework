@@ -322,6 +322,10 @@ function addStandardIndicatorRows(
       (candidate) => candidate.id === finalOutcomeId,
     )
     if (!outcome) return
+    ;(state.finalOutcomeSuggestedIndicatorIds?.[finalOutcomeId] ?? []).forEach(id => {
+      const indicator = framework.indicators.find(i => i.id === id)
+      if (indicator) rows.push(standardIndicatorRow(indicator, { resultLevel: 'Final Outcome', finalOutcome: outcome.statement }))
+    })
     ;(state.finalOutcomeIndicators?.[finalOutcomeId] ?? []).forEach(indicator => rows.push({
       resultLevel: 'Final Outcome', finalOutcome: outcome.statement, pathway: '', intermediateOutcome: '',
       indicator: [indicator.wording, indicator.measurementNotes].filter(Boolean).join(' — '), indicatorType: 'Project-specific', requirement: 'Optional', frameworkSource: 'Standard framework',
@@ -615,6 +619,7 @@ function standardDonorRows(
       finalOutcome: outcome.statement,
       indicator: joinUnique(
         [...outcome.primaryIndicatorIds.map((id) => indicatorText(framework, id)),
+          ...(state.finalOutcomeSuggestedIndicatorIds?.[outcome.id] ?? []).map(id => indicatorText(framework, id)),
           ...(state.finalOutcomeIndicators?.[outcome.id] ?? []).map(i => [i.wording, i.measurementNotes].filter(Boolean).join(' — '))],
       ),
       pathwayContext: joinUnique(pathwaysForOutcome),

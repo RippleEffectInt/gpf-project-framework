@@ -112,6 +112,7 @@ export interface PersistedProjectDesignV1 {
     status: ProjectStatus
   }
   design: {
+    finalOutcomeSuggestedIndicatorIds?: Record<string, string[]>
     finalOutcomeIndicators?: Record<string, PersistedProjectSpecificIndicatorV1[]>
     guidedInitializedStepKeys?: string[]
     metadata: {

@@ -295,6 +295,7 @@ export function isPersistedProjectDesignV1(
     isOptionalString(project.country) &&
     isOptionalString(project.projectCode) &&
     isProjectStatus(project.status) &&
+    (design.finalOutcomeSuggestedIndicatorIds === undefined || (isRecord(design.finalOutcomeSuggestedIndicatorIds) && Object.values(design.finalOutcomeSuggestedIndicatorIds).every(isStringArray))) &&
     (design.finalOutcomeIndicators === undefined || (isRecord(design.finalOutcomeIndicators) && Object.values(design.finalOutcomeIndicators).every(items => Array.isArray(items) && items.every(isProjectSpecificIndicator)))) &&
     (design.guidedInitializedStepKeys === undefined || isStringArray(design.guidedInitializedStepKeys)) &&
     isRecord(design.metadata) &&
@@ -455,6 +456,7 @@ export function serializeProject({
       status,
     },
     design: {
+      ...(design.finalOutcomeSuggestedIndicatorIds ? { finalOutcomeSuggestedIndicatorIds: structuredClone(design.finalOutcomeSuggestedIndicatorIds) } : {}),
       ...(design.finalOutcomeIndicators ? { finalOutcomeIndicators: structuredClone(design.finalOutcomeIndicators) } : {}),
       ...(design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: design.guidedInitializedStepKeys } : {}),
       metadata: {
@@ -620,6 +622,7 @@ export function loadPersistedProject(
   return {
     document,
     design: {
+      ...(document.design.finalOutcomeSuggestedIndicatorIds ? { finalOutcomeSuggestedIndicatorIds: structuredClone(document.design.finalOutcomeSuggestedIndicatorIds) } : {}),
       ...(document.design.finalOutcomeIndicators ? { finalOutcomeIndicators: structuredClone(document.design.finalOutcomeIndicators) } : {}),
       ...(document.design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: document.design.guidedInitializedStepKeys } : {}),
       metadata: {

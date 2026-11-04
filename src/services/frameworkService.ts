@@ -406,3 +406,9 @@ export function getPathwayIntermediateOutcomeSeeds(
       getPrimaryIndicatorForIntermediateOutcome(data, outcome.id)?.id ?? null,
   }))
 }
+
+export function getAdditionalIndicatorsForFinalOutcome(data: FrameworkData, finalOutcomeId: string): Indicator[] {
+  const outcome = getFinalOutcome(data, finalOutcomeId)
+  const ids = new Set(outcome?.additionalIndicatorIds ?? [])
+  return data.indicators.filter(i => ids.has(i.id) && i.parentId === finalOutcomeId && i.parentType === 'FinalOutcome' && i.role === 'Additional' && !i.mandatory && i.active)
+}
