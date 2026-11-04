@@ -34,6 +34,21 @@ function selectTarget() {
 }
 
 describe('guided configuration', () => {
+  it('shows an editable guided quantity without the group checkbox and preserves saved values until edited', () => {
+    const prepared = guidedPreparationActions(data, seed()).reduce(projectDesignReducer, seed())
+    mount(prepared)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Planned quantity' })).toHaveValue('12')
+    expect(current().projectPathways).toEqual(prepared.projectPathways)
+    expect(screen.getAllByText('Supports Outcome/s:')[0]!).toBeVisible()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Planned quantity' }), { target: { value: '7' } })
+    const activity = current().projectPathways[0]!.intermediateOutcomeConfigurations[0]!.standardActivities[0]!
+    expect(activity).toMatchObject({ plannedQuantity: 7, useProjectSelfHelpGroupTotal: false })
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
+    expect(screen.getAllByRole('checkbox', { name: /Use all 12 Self Help Groups/ }).length).toBeGreaterThan(0)
+  })
+
   it('labels outcome levels and keeps the exact canonical primary indicators', () => {
     const initial = seed()
     mount(initial, true)
@@ -145,6 +160,14 @@ describe('guided configuration', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
     expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.every(io => !io.reviewed)).toBe(true)
     expect(screen.getByRole('button', { name: 'Confirm reviewed pathways' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Add suggested indicators' }))
+    const suggested = screen.getAllByRole('button', { name: /^Add: / })[0]!
+    expect(suggested.closest('li')).toBeTruthy()
+    expect(suggested.closest('section')?.querySelector('h3')).toBeTruthy()
+    fireEvent.click(suggested)
+    expect(screen.getAllByRole('button', { name: 'Remove indicator' })).toHaveLength(1)
+    expect(current().projectPathways[0]!.intermediateOutcomeConfigurations.reduce((n, io) => n + io.additionalIndicators.length, 0)).toBe(1)
+
   })
   it('supports custom innovation activity edits and undo while protecting its required indicators', () => {
     const state = seed()

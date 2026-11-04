@@ -27,3 +27,10 @@ All three supplied Library screenshot references resolved, but each prescribed t
 ## Screenshot follow-up
 
 The parent inspected all three images and confirmed unequal button heights, the missing activities/outputs section heading, unlabeled pathway/Intermediate Outcome context, truncated “Self Help Gr” unit selection and tiny grey output wording. Version 6 addressed alignment, headings, context and output prominence. This follow-up gives the guided output-unit selector its own full-width row, including when a manual quantity is visible. Direct pixel/browser verification remains unavailable here; this comparison uses the parent’s image inspection and CSS/component inspection. Phil subsequently confirmed that the existing indicator requirements should remain unchanged.
+
+## Further guided editor simplification
+
+- Activity titles now begin with “Activity:” and their context reads “Supports Outcome/s:”.
+- Guided editors always show the saved planned quantity. They omit the group-total checkbox and its explanatory sentence. Opening or switching views does not change saved quantities or group-link flags. Deliberately editing quantity uses the existing manual-quantity behavior, clearing the group-total link; advanced controls remain available.
+- Suggested indicators are grouped by Intermediate Outcome, with separate rows and explicit Add buttons. Selected suggestions disappear from the available list; empty groups explain that none remain.
+- The request for a “custom outcome for final outcomes” is awaiting clarification; this batch does not implement it.

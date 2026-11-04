@@ -19,12 +19,14 @@ export function PlannedOutputEditor({
   activity,
   plannedSelfHelpGroupCount,
   defaultWordingEditorOpen,
+  guided = false,
   onChange,
 }: {
   planning: ActivityOutputPlanning
   activity?: Pick<SuggestedActivity, 'outputPhrase' | 'text'>
   plannedSelfHelpGroupCount: number | null
   defaultWordingEditorOpen?: boolean
+  guided?: boolean
   onChange: (planning: ActivityOutputPlanning) => void
 }) {
   const outputPhrase = activity?.outputPhrase ?? null
@@ -37,7 +39,7 @@ export function PlannedOutputEditor({
     planning.outputUnitSelection === 'self-help-groups' &&
     plannedSelfHelpGroupCount !== null
   const showManualQuantity =
-    !useSelfHelpGroupTotalAvailable ||
+    guided || !useSelfHelpGroupTotalAvailable ||
     !planning.useProjectSelfHelpGroupTotal
   const outputText = displayedOutputText(planning, outputPhrase)
   const generatedOutput = displayedOutputText(
@@ -113,7 +115,7 @@ export function PlannedOutputEditor({
         )}
       </div>
 
-      {useSelfHelpGroupTotalAvailable && (
+      {!guided && useSelfHelpGroupTotalAvailable && (
         <label className="checkbox-option planned-output-groups">
           <input
             type="checkbox"
@@ -134,7 +136,7 @@ export function PlannedOutputEditor({
         </label>
       )}
 
-      {useSelfHelpGroupTotalAvailable && <p className="field-guidance">When checked, the quantity follows the group total in Project details. Uncheck it to enter a different quantity for this activity.</p>}
+      {!guided && useSelfHelpGroupTotalAvailable && <p className="field-guidance">When checked, the quantity follows the group total in Project details. Uncheck it to enter a different quantity for this activity.</p>}
 
       <p className="planned-output-text">
         {outputText

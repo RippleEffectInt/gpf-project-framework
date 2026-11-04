@@ -14,19 +14,19 @@ function ActivityItem({ activity, standard, fixedWording = false, context, onCha
   const [editing, setEditing] = useState(false)
   const { state } = useProjectDesign()
   return <li className="guided-list-item">
-    <p className="guided-item-title">{activity.wording || 'Untitled activity'}</p>
+    <p className="guided-item-title">Activity: {activity.wording || 'Untitled activity'}</p>
     <p className="guided-output"><strong>Output:</strong> {displayedOutputText(activity, standard?.outputPhrase) ?? 'Not specified yet'}</p>
     <div className="guided-item-actions">
       <button type="button" className="text-button" onClick={() => setEditing(!editing)}>{editing ? 'Done editing' : 'Edit'}</button>
       <button type="button" className="text-button" onClick={onRemove}>Remove activity</button>
     </div>
     <div className="guided-inline-editor" hidden={!editing}>
-      <p className="guided-context"><strong>Supports:</strong> {context}</p>
+      <p className="guided-context"><strong>Supports Outcome/s:</strong> {context}</p>
       {!fixedWording && <p className="field-guidance">Activity wording: describe what your team will do, using a clear action such as train, establish or facilitate.</p>}
       {fixedWording ? <p>Standard activity wording is fixed to keep the framework consistent. Use project notes to explain how you will deliver it, then check the planned output below.</p> : <label>Activity wording<input value={activity.wording} onChange={e => onChange({ ...activity, wording: e.target.value })} /></label>}
       <p className="field-guidance">Project notes are optional: describe who will take part, where and when the activity will happen, and any local adaptations.</p>
       <label>Project notes<textarea value={activity.projectDetails} onChange={e => onChange({ ...activity, projectDetails: e.target.value })} /></label>
-      <PlannedOutputEditor planning={normalizeActivityOutput(activity)} activity={standard} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => onChange({ ...activity, ...output })} />
+      <PlannedOutputEditor guided planning={normalizeActivityOutput(activity)} activity={standard} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => onChange({ ...activity, ...output })} />
     </div>
   </li>
 }
@@ -137,7 +137,7 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
         <p>Describe the action your team will carry out. Use project notes for optional delivery details such as participants, location and timing.</p>
         <label>Activity wording *<input required value={activityDraft.wording} onChange={e => setActivityDraft({ ...activityDraft, wording: e.target.value })} /></label>
         <label>Project notes<textarea value={activityDraft.projectDetails} onChange={e => setActivityDraft({ ...activityDraft, projectDetails: e.target.value })} /></label>
-        <PlannedOutputEditor planning={normalizeActivityOutput(activityDraft)} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => setActivityDraft({ ...activityDraft, ...output })} />
+        <PlannedOutputEditor guided planning={normalizeActivityOutput(activityDraft)} plannedSelfHelpGroupCount={state.metadata.plannedSelfHelpGroupCount} onChange={output => setActivityDraft({ ...activityDraft, ...output })} />
         <button className="button primary" type="submit">Add activity</button>
       </form>
       {!custom && <details className="guided-available"><summary>Add a suggested activity</summary>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getSuggestedActivitiesForIntermediateOutcome(data, target.ioId).filter(a => !target.standardActivities.some(s => s.frameworkActivityId === a.id)).map(a => <button className="text-button" key={a.id} onClick={() => dispatch({ type: 'setStandardActivity', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkActivityId: a.id, selected: true })}>Add: {a.text}</button>)}</div>)}</details>}
@@ -168,7 +168,22 @@ export function GuidedOutcomeList({ pathwayIds = [], custom = false, primary, ph
         <label>Measurement notes<textarea value={indicatorDraft.measurementNotes} onChange={e => setIndicatorDraft({ ...indicatorDraft, measurementNotes: e.target.value })} /></label>
         <button className="button primary" type="submit">Add indicator</button>
       </form>
-      {!custom && <><button className="text-button" onClick={() => setShowAvailable(!showAvailable)}>Add suggested indicators</button><div hidden={!showAvailable}>{targets.map(target => <div key={target.key}><p>{target.label}</p>{getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id)).map(i => <button className="text-button" key={i.id} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add: {i.text}</button>)}</div>)}</div></>}
+      {!custom && <div className="guided-indicator-options">
+        <button className="button secondary" aria-expanded={showAvailable} onClick={() => setShowAvailable(!showAvailable)}>Add suggested indicators</button>
+        <div hidden={!showAvailable}>
+          <p>Choose optional indicators to add to the relevant Intermediate Outcome. Required Primary indicators are already included above.</p>
+          {targets.map(target => {
+            const available = getAdditionalIndicatorsForIntermediateOutcome(data, target.ioId).filter(i => !target.optional.some(s => s.frameworkIndicatorId === i.id))
+            return <section className="guided-indicator-group" key={target.key}>
+              <h3>{target.label}</h3>
+              {available.length ? <ul>{available.map(i => <li key={i.id}>
+                <p>{i.text}</p>
+                <button className="button secondary" aria-label={`Add: ${i.text}`} onClick={() => dispatch({ type: 'setAdditionalIndicator', pathwayId: target.pathwayId, intermediateOutcomeId: target.ioId, frameworkIndicatorId: i.id, selected: true })}>Add indicator</button>
+              </li>)}</ul> : <p>No further suggested indicators for this Intermediate Outcome.</p>}
+            </section>
+          })}
+        </div>
+      </div>}
     </div>
   </div>
 }

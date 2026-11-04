@@ -3901,3 +3901,11 @@ label .field-error {
 .guided-inline-editor .planned-output-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
 
 .guided-inline-editor .planned-output-unit { grid-column: 1 / -1; }
+
+.guided-indicator-options { margin-top: 1rem; }
+.guided-indicator-group { padding: 1rem; margin: 1rem 0; border: 1px solid #c9d8ce; border-radius: 0.5rem; }
+.guided-indicator-group h3 { font-size: 1rem; line-height: 1.5; }
+.guided-indicator-group ul { list-style: none; padding: 0; margin: 0; }
+.guided-indicator-group li { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; border-top: 1px solid #dce4df; }
+.guided-indicator-group li p { flex: 1 1 18rem; margin: 0; line-height: 1.5; }
+.guided-indicator-group li button { flex-shrink: 0; }
