@@ -109,6 +109,7 @@ function NodeDetails({ node }: { node: TocNode }) {
               <EmptyDetail>Primary indicator unavailable.</EmptyDetail>
             )}
           </section>
+          {!!node.data.additionalIndicators?.length && <section><h3>Custom Final Outcome indicators</h3><IndicatorList indicators={node.data.additionalIndicators} /></section>}
         </>
       )
     case 'pathway':

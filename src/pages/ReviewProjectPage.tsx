@@ -1,3 +1,4 @@
+import { FinalOutcomeIndicators } from '../components/FinalOutcomeIndicators'
 import { Link } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
 import { ProjectExportPanel } from '../components/ProjectExportPanel'
@@ -58,12 +59,14 @@ function selectedLinksForOutcome(
 
 function FinalOutcomeReviewCard({
   source,
+  outcomeId,
   statement,
   impactAreas,
   primaryIndicator,
   primaryPathways,
   relatedPathways = [],
 }: {
+  outcomeId: string
   source: 'Standard framework' | 'Custom innovation'
   statement: string
   impactAreas: string[]
@@ -83,6 +86,7 @@ function FinalOutcomeReviewCard({
         <span className="review-outcome-label">Primary indicator</span>
         <p>{primaryIndicator}</p>
       </div>
+      <FinalOutcomeIndicators outcomeId={outcomeId} />
       <div className="review-outcome-pathways">
         <span className="review-outcome-label">Pathways</span>
         <div className="review-outcome-pathway-row">
@@ -266,6 +270,7 @@ function CustomInnovationReview({
       </div>
       <div className="review-outcome-list">
         <FinalOutcomeReviewCard
+          outcomeId={custom.id}
           source="Custom innovation"
           statement={custom.statement}
           impactAreas={impactAreas.map((impact) => impact.theme)}
@@ -548,6 +553,7 @@ export function ReviewProjectPage() {
               return (
                 <FinalOutcomeReviewCard
                   key={outcomeId}
+                  outcomeId={outcomeId}
                   source="Standard framework"
                   statement={outcome.statement}
                   impactAreas={outcomeImpacts.map((impact) => impact.theme)}

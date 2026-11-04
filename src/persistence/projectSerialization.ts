@@ -295,6 +295,7 @@ export function isPersistedProjectDesignV1(
     isOptionalString(project.country) &&
     isOptionalString(project.projectCode) &&
     isProjectStatus(project.status) &&
+    (design.finalOutcomeIndicators === undefined || (isRecord(design.finalOutcomeIndicators) && Object.values(design.finalOutcomeIndicators).every(items => Array.isArray(items) && items.every(isProjectSpecificIndicator)))) &&
     (design.guidedInitializedStepKeys === undefined || isStringArray(design.guidedInitializedStepKeys)) &&
     isRecord(design.metadata) &&
     (design.metadata.isMultiCountry === undefined || typeof design.metadata.isMultiCountry === 'boolean') &&
@@ -454,6 +455,7 @@ export function serializeProject({
       status,
     },
     design: {
+      ...(design.finalOutcomeIndicators ? { finalOutcomeIndicators: structuredClone(design.finalOutcomeIndicators) } : {}),
       ...(design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: design.guidedInitializedStepKeys } : {}),
       metadata: {
         isMultiCountry: design.metadata.isMultiCountry === true,
@@ -618,6 +620,7 @@ export function loadPersistedProject(
   return {
     document,
     design: {
+      ...(document.design.finalOutcomeIndicators ? { finalOutcomeIndicators: structuredClone(document.design.finalOutcomeIndicators) } : {}),
       ...(document.design.guidedInitializedStepKeys ? { guidedInitializedStepKeys: document.design.guidedInitializedStepKeys } : {}),
       metadata: {
         title: document.project.name,

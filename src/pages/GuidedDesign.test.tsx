@@ -1,3 +1,5 @@
+import { generateTheoryOfChangeGraph } from '../theoryOfChange/generateTheoryOfChangeGraph'
+import { inputCategories } from '../data/inputCategories'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -34,6 +36,35 @@ function selectTarget() {
 }
 
 describe('guided configuration', () => {
+  it('adds, edits, removes and persists Final Outcome indicators without changing primary indicators', () => {
+    const state = seed()
+    mount(state, true)
+    const primaryBefore = current().projectPathways.map(p => p.intermediateOutcomeConfigurations.map(io => io.primaryIndicator))
+    fireEvent.click(screen.getByRole('button', { name: '2. Indicators & review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add custom Final Outcome indicator' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Final Outcome indicator wording' }), { target: { value: 'Household change measure' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Final Outcome measurement notes' }), { target: { value: 'Annual survey' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced setup' }))
+    expect(screen.getByRole('textbox', { name: 'Final Outcome indicator wording' })).toHaveValue('Household change measure')
+    fireEvent.click(screen.getByRole('button', { name: 'Save Final Outcome indicator' }))
+    const id = state.selectedFinalOutcomeIds[0]!
+    const saved = current()
+    const doc = serializeProject({ id: 'final-indicators', status: 'Draft', design: saved, framework: data })
+    expect(loadPersistedProject(doc, data).design.finalOutcomeIndicators).toEqual(saved.finalOutcomeIndicators)
+    const legacy = structuredClone(doc); delete legacy.design.finalOutcomeIndicators
+    expect(loadPersistedProject(legacy, data).design.finalOutcomeIndicators).toBeUndefined()
+    const graph = generateTheoryOfChangeGraph({ project: saved, framework: data, inputCategories })
+    expect(graph.nodes.some(n => n.type === 'finalOutcome' && n.data.additionalIndicators?.some(i => i.label === 'Household change measure' && i.measurementNotes === 'Annual survey'))).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Final Outcome indicator' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Final Outcome indicator wording' }), { target: { value: 'Revised measure' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Final Outcome indicator' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Final Outcome indicator' }))
+    expect(current().finalOutcomeIndicators?.[id]).toEqual([])
+    fireEvent.click(screen.getByRole('button', { name: 'Undo indicator removal' }))
+    expect(current().finalOutcomeIndicators?.[id]?.[0]?.wording).toBe('Revised measure')
+    expect(current().projectPathways.map(p => p.intermediateOutcomeConfigurations.map(io => io.primaryIndicator))).toEqual(primaryBefore)
+  })
+
   it('shows an editable guided quantity without the group checkbox and preserves saved values until edited', () => {
     const prepared = guidedPreparationActions(data, seed()).reduce(projectDesignReducer, seed())
     mount(prepared)

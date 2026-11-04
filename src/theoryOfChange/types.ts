@@ -63,6 +63,7 @@ export interface TocFinalOutcomeNode extends TocNodeBase {
   data: {
     statement: string
     impactLabels: string[]
+    additionalIndicators?: TocIndicatorDetail[]
     primaryIndicator: TocIndicatorDetail | null
   }
 }

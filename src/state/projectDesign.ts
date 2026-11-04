@@ -48,6 +48,8 @@ export const initialProjectDesignState: ProjectDesignState = {
 }
 
 export type ProjectDesignAction =
+  | { type: 'saveFinalOutcomeIndicator'; finalOutcomeId: string; indicator: ProjectSpecificIndicator }
+  | { type: 'deleteFinalOutcomeIndicator'; finalOutcomeId: string; indicatorId: string }
   | { type: 'markGuidedStepsInitialized'; keys: string[] }
   | { type: 'updateMetadata'; payload: Partial<ProjectMetadata> }
   | { type: 'selectFinalOutcome'; finalOutcomeId: string }
@@ -424,6 +426,19 @@ export function projectDesignReducer(
 ): ProjectDesignState {
   if (outcomeLimitMessage(state, action)) return state
   switch (action.type) {
+    case 'saveFinalOutcomeIndicator':
+    case 'deleteFinalOutcomeIndicator': {
+      if (!state.selectedFinalOutcomeIds.includes(action.finalOutcomeId) && state.customInnovation?.id !== action.finalOutcomeId) return state
+      const existing = state.finalOutcomeIndicators?.[action.finalOutcomeId] ?? []
+      if (action.type === 'saveFinalOutcomeIndicator' && (!action.indicator.id || !action.indicator.wording.trim())) return state
+      const indicators = action.type === 'deleteFinalOutcomeIndicator'
+        ? existing.filter(i => i.id !== action.indicatorId)
+        : existing.some(i => i.id === action.indicator.id)
+          ? existing.map(i => i.id === action.indicator.id ? { ...action.indicator } : i)
+          : [...existing, { ...action.indicator }]
+      return { ...state, finalOutcomeIndicators: { ...state.finalOutcomeIndicators, [action.finalOutcomeId]: indicators } }
+    }
+
     case 'markGuidedStepsInitialized':
       return state.guidedInitializedStepKeys ? { ...state, guidedInitializedStepKeys: [...new Set([...state.guidedInitializedStepKeys, ...action.keys])] } : state
 

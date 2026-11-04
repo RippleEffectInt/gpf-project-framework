@@ -1,3 +1,4 @@
+import { FinalOutcomeIndicators } from '../components/FinalOutcomeIndicators'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { DesignProgress } from '../components/DesignProgress'
@@ -51,6 +52,7 @@ export function GuidedDesignPage() {
       return <section id={`guided-outcome-${outcomeId}`} key={outcomeId} className="configuration-overview-card">
         <h2>Outcome {outcomeIndex + 1}: {outcome?.statement ?? outcomeId}</h2>
         {links.filter(link => owner.get(link.pathwayId) === outcomeId && state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId).length > 1).map(link => <p className="guided-shared-note" key={link.pathwayId}>Shared activities also support {state.outcomePathwayLinks.filter(other => other.pathwayId === link.pathwayId && other.finalOutcomeId !== outcomeId).map(other => getFinalOutcome(data, other.finalOutcomeId)?.shortLabel ?? other.finalOutcomeId).join(', ')}. Edits and removals apply to every linked outcome.</p>)}
+<div hidden={phase === 'activities'}><FinalOutcomeIndicators outcomeId={outcomeId} editable /></div>
         <GuidedOutcomeList phase={phase} pathwayIds={links.filter(link => owner.get(link.pathwayId) === outcomeId).map(link => link.pathwayId)} primary={{ id: primary?.id ?? '', wording: primary?.text ?? 'Required Primary indicator missing', measurementNotes: '' }} />
         {links.map(link => {
           const pathway = state.projectPathways.find(item => item.pathwayId === link.pathwayId)
@@ -69,6 +71,7 @@ export function GuidedDesignPage() {
     })}
     {state.customInnovation && <section className="configuration-overview-card">
       <h2>Outcome {state.selectedFinalOutcomeIds.length + 1}: {state.customInnovation.shortLabel || 'Custom innovation'}</h2>
+<div hidden={phase === 'activities'}><FinalOutcomeIndicators outcomeId={state.customInnovation.id} editable /></div>
       <GuidedOutcomeList phase={phase} custom primary={state.customInnovation.primaryIndicator} />
       <div hidden={phase !== 'detailed'}><CustomInnovationPage /></div>
     </section>}

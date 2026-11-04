@@ -1,3 +1,4 @@
+import { FinalOutcomeIndicators } from '../components/FinalOutcomeIndicators'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { overviewBackground } from '../state/draftOverviewNavigation'
 import { getProjectResumePath } from '../state/journeySelectors'
@@ -63,6 +64,7 @@ export function DraftOverviewPage() {
           const links = state.outcomePathwayLinks.filter((link) => link.finalOutcomeId === id)
           return <article className="review-outcome-card" key={id}>
             <h3>{outcome?.shortLabel ?? outcome?.statement ?? `Unavailable outcome (${id})`}</h3>
+            <FinalOutcomeIndicators outcomeId={id} />
             {!links.some((link) => link.relationshipType === 'primary') && <p>Primary pathway still needed.</p>}
             <ul>{links.map((link) => {
               const pathway = data.pathways.find((item) => item.id === link.pathwayId)
@@ -76,6 +78,7 @@ export function DraftOverviewPage() {
         {state.customInnovation && <article className="review-outcome-card">
           <h3>{state.customInnovation.statement || 'Untitled custom innovation outcome'}</h3>
           <p>Custom innovation draft · {state.customInnovation.pathway.intermediateOutcomes.length} Intermediate Outcomes</p>
+          <FinalOutcomeIndicators outcomeId={state.customInnovation.id} />
           <Link to="/design/custom-innovation">Edit custom innovation</Link>
         </article>}
       </section>

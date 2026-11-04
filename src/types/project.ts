@@ -163,6 +163,8 @@ export interface CustomInnovationOutcome {
 }
 
 export interface ProjectDesignState {
+  /** Optional project-specific measures keyed by standard or custom Final Outcome ID. */
+  finalOutcomeIndicators?: Record<string, ProjectSpecificIndicator[]>
   /** Missing on legacy drafts: preserve their selections without automatic defaults. */
   guidedInitializedStepKeys?: string[]
   metadata: ProjectMetadata

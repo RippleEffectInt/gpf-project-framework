@@ -322,6 +322,10 @@ function addStandardIndicatorRows(
       (candidate) => candidate.id === finalOutcomeId,
     )
     if (!outcome) return
+    ;(state.finalOutcomeIndicators?.[finalOutcomeId] ?? []).forEach(indicator => rows.push({
+      resultLevel: 'Final Outcome', finalOutcome: outcome.statement, pathway: '', intermediateOutcome: '',
+      indicator: [indicator.wording, indicator.measurementNotes].filter(Boolean).join(' — '), indicatorType: 'Project-specific', requirement: 'Optional', frameworkSource: 'Standard framework',
+    }))
     outcome.primaryIndicatorIds.forEach((indicatorId) => {
       const indicator = framework.indicators.find(
         (candidate) => candidate.id === indicatorId,
@@ -481,6 +485,10 @@ function addCustomInnovationRows(
     ),
     '; ',
   )
+  ;(state.finalOutcomeIndicators?.[custom.id] ?? []).forEach(indicator => model.indicators.push({
+    resultLevel: 'Final Outcome', finalOutcome, pathway, intermediateOutcome: '',
+    indicator: [indicator.wording, indicator.measurementNotes].filter(Boolean).join(' — '), indicatorType: 'Project-specific', requirement: 'Optional', frameworkSource: 'Custom innovation',
+  }))
   model.indicators.push({
     resultLevel: 'Final Outcome',
     finalOutcome,
@@ -606,9 +614,8 @@ function standardDonorRows(
       resultStatement: outcome.statement,
       finalOutcome: outcome.statement,
       indicator: joinUnique(
-        outcome.primaryIndicatorIds.map((id) =>
-          indicatorText(framework, id),
-        ),
+        [...outcome.primaryIndicatorIds.map((id) => indicatorText(framework, id)),
+          ...(state.finalOutcomeIndicators?.[outcome.id] ?? []).map(i => [i.wording, i.measurementNotes].filter(Boolean).join(' — '))],
       ),
       pathwayContext: joinUnique(pathwaysForOutcome),
       keyActivities: '',
@@ -702,7 +709,7 @@ function addCustomDonorRows(
     resultsLevel: 'Final Outcome',
     resultStatement: custom.statement,
     finalOutcome: custom.statement,
-    indicator: custom.primaryIndicator.wording,
+    indicator: joinUnique([custom.primaryIndicator.wording, ...(state.finalOutcomeIndicators?.[custom.id] ?? []).map(i => [i.wording, i.measurementNotes].filter(Boolean).join(' — '))]),
     pathwayContext: `${custom.pathway.name} (Primary)\nCustom innovation`,
     keyActivities: '',
     plannedOutputs: '',

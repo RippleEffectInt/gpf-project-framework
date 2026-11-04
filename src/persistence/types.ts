@@ -112,6 +112,7 @@ export interface PersistedProjectDesignV1 {
     status: ProjectStatus
   }
   design: {
+    finalOutcomeIndicators?: Record<string, PersistedProjectSpecificIndicatorV1[]>
     guidedInitializedStepKeys?: string[]
     metadata: {
       isMultiCountry?: boolean
